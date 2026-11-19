@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: runpulse-applewatch
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: RUNPULSE_ACCESS_PASSWORD
+        sync: false
+      - key: RUNPULSE_SECRET_SALT
+        generateValue: true
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
