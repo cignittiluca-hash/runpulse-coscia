@@ -204,6 +204,42 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
             : ""
         }
       </section>
+
+      <!-- WHOOP 4.0 REAL-TIME CONNECTION -->
+      <section class="card" style="border-color:${s.whoop_connected ? "rgba(16,185,129,0.4)" : "rgba(245,158,11,0.4)"};">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🟡 Whoop 4.0 (Recupero & Strain in Tempo Reale)</div>
+            <div class="subtitle">Sincronizzazione automatica continua di Recovery Score (%), Day Strain e Sonno</div>
+          </div>
+          <span class="pill ${s.whoop_connected ? "pill-green" : "pill-muted"}">
+            ${s.whoop_connected ? "COLLEGATO IN TEMPO REALE" : "DA COLLEGARE"}
+          </span>
+        </div>
+
+        <div style="margin-top:14px;">
+          ${
+            s.whoop_connected
+              ? `<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:12px;margin-bottom:12px;">
+                   <div style="color:#10b981;font-weight:700;display:flex;align-items:center;gap:8px;">
+                     <span>✓</span> Whoop è connesso! I dati di recupero e sforzo arrivano in automatico in tempo reale.
+                   </div>
+                   <div style="font-size:0.8rem;color:#93a1be;margin-top:4px;">
+                     Ultimo aggiornamento: <strong>${escapeHtml(s.whoop_last_sync || "in attesa del primo dato")}</strong>
+                   </div>
+                 </div>
+                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                   <button class="btn btn-ghost btn-sm" id="btn-whoop-sync-now" type="button">↻ Sincronizza Adesso</button>
+                 </div>`
+              : `<p style="color:#cbd5e1;font-size:0.9rem;margin-bottom:14px;line-height:1.5;">
+                   Tocca il pulsante qui sotto per collegare il tuo account Whoop in 1 solo tap: i tuoi dati si aggiorneranno da soli ogni giorno in tempo reale!
+                 </p>
+                 <button class="btn btn-primary" id="btn-whoop-oauth-1tap" style="background:#f59e0b;color:#090c14;font-size:1rem;font-weight:700;padding:12px 22px;display:flex;align-items:center;gap:10px;border:none;">
+                   <span style="font-size:1.25rem;">⚡</span> Connetti Whoop
+                 </button>`
+          }
+        </div>
+      </section>
     </div>
 
     <div class="grid-2">
@@ -515,6 +551,35 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
       renderSettings(container, refreshSidebarStatus, isStale);
     } catch (err) {
       showToast(err.message, "error");
+    }
+  });
+
+  
+  // Whoop 1-Tap OAuth & Sync
+  document.getElementById("btn-whoop-oauth-1tap")?.addEventListener("click", async () => {
+    try {
+      const res = await api.getWhoopAuthUrl();
+      if (res && res.url) {
+        window.location.href = res.url;
+      }
+    } catch (err) {
+      showToast(err.message || "Errore avvio connessione Whoop", "error");
+    }
+  });
+
+  document.getElementById("btn-whoop-sync-now")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = "Sincronizzazione...";
+    try {
+      const res = await api.syncWhoop();
+      showToast(`Whoop sincronizzato con successo (${res.synced_days || 0} giorni)!`, "success");
+      await refreshSidebarStatus();
+      renderSettings(container, refreshSidebarStatus);
+    } catch (err) {
+      showToast(err.message, "error");
+      btn.disabled = false;
+      btn.textContent = "↻ Sincronizza Adesso";
     }
   });
 

@@ -107,6 +107,13 @@ async def _background_auto_sync_loop() -> None:
                         logger.info("Auto-sync Garmin completato: %s", res)
                     except Exception as exc:
                         logger.warning("Auto-sync Garmin fallito: %s", exc)
+                if is_whoop_connected():
+                    attempted = True
+                    try:
+                        res = await asyncio.to_thread(sync_whoop_api, 7)
+                        logger.info("Auto-sync Whoop completato: %s", res)
+                    except Exception as exc:
+                        logger.warning("Auto-sync Whoop fallito: %s", exc)
                 # Always advance wall timer when a sync was attempted to avoid 60s retry storms on errors
                 if attempted:
                     last_sync_wall = time.time()
@@ -479,6 +486,13 @@ async def whoop_manual_endpoint(entry: WhoopManualEntry):
 async def whoop_webhook_endpoint(request: Request):
     try:
         data = await request.json()
+        # Official Whoop Developer Real-Time Event
+        event_type = data.get("type")
+        if event_type:
+            logger.info("Ricevuto webhook Whoop real-time: %s", event_type)
+            asyncio.create_task(asyncio.to_thread(sync_whoop_api, 3))
+            return {"status": "ok", "event": event_type}
+
         token = request.headers.get("x-whoop-token") or data.get("auth_token")
         settings = db.get_settings()
         expected = settings.get("whoop_api_key", "").strip()
