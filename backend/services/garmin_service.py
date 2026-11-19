@@ -159,7 +159,12 @@ def login_garmin(email: str, password: str, mfa_code: Optional[str] = None) -> D
 
     def worker() -> None:
         try:
-            client = Garmin(email=email.strip(), password=password)
+            try:
+                # Modern garminconnect 0.3.x passes prompt_mfa directly into __init__
+                client = Garmin(email=email.strip(), password=password, prompt_mfa=prompt_mfa)
+            except TypeError:
+                client = Garmin(email=email.strip(), password=password)
+
             if hasattr(client, "garth"):
                 client.garth.login(email.strip(), password, prompt_mfa=prompt_mfa)
                 with _garmin_sync_lock:
@@ -168,7 +173,6 @@ def login_garmin(email: str, password: str, mfa_code: Optional[str] = None) -> D
                 profile = getattr(client.garth, "profile", {}) or {}
                 display_name = profile.get("fullName") or profile.get("displayName") or email.strip()
             else:
-                client.prompt_mfa = prompt_mfa
                 client.login()
                 with _garmin_sync_lock:
                     if hasattr(client, "dump"):
@@ -195,7 +199,7 @@ def login_garmin(email: str, password: str, mfa_code: Optional[str] = None) -> D
     t = threading.Thread(target=worker, daemon=True)
     t.start()
 
-    deadline = datetime.utcnow() + timedelta(seconds=25)
+    deadline = datetime.utcnow() + timedelta(seconds=60)
     while datetime.utcnow() < deadline:
         if attempt.login_done.is_set():
             break
@@ -209,11 +213,16 @@ def login_garmin(email: str, password: str, mfa_code: Optional[str] = None) -> D
     if not attempt.login_done.is_set():
         return {
             "status": "error",
-            "message": "Timeout durante il login su Garmin Connect. Riprova tra qualche secondo.",
+            "message": "Timeout durante il login su Garmin Connect. Verifica le credenziali e riprova.",
         }
 
     if attempt.error:
-        raise ValueError(f"Accesso Garmin non riuscito: {attempt.error}")
+        err_msg = attempt.error
+        if "Authentication" in err_msg or "credential" in err_msg.lower() or "401" in err_msg:
+            err_msg = "Email o password di Garmin Connect non corrette. Verifica i dati di accesso."
+        elif "429" in err_msg or "rate limit" in err_msg.lower():
+            err_msg = "Garmin ha temporaneamente limitato le richieste. Attendi 2 minuti e riprova."
+        raise ValueError(f"Accesso Garmin non riuscito: {err_msg}")
 
     return {
         "status": "connected",
@@ -229,10 +238,11 @@ def submit_garmin_mfa(mfa_code: str) -> Dict[str, Any]:
         raise ValueError("Nessuna sessione MFA Garmin attiva. Avvia nuovamente il login.")
     attempt.mfa_code = mfa_code.strip()
     attempt.mfa_provided.set()
-    finished = attempt.login_done.wait(timeout=25)
+    finished = attempt.login_done.wait(timeout=45)
     if not finished:
-        raise ValueError("Timeout verifica codice MFA Garmin.")
+        raise ValueError("Timeout verifica codice MFA Garmin. Riprova.")
     if attempt.error:
+        raise ValueError(f"Verifica MFA Garmin fallita: {attempt.error}")
         raise ValueError(f"Verifica MFA Garmin fallita: {attempt.error}")
     return {
         "status": "connected",
