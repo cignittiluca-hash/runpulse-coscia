@@ -160,12 +160,25 @@ def login_garmin(email: str, password: str, mfa_code: Optional[str] = None) -> D
     def worker() -> None:
         try:
             client = Garmin(email=email.strip(), password=password)
-            client.garth.login(email.strip(), password, prompt_mfa=prompt_mfa)
-            with _garmin_sync_lock:
-                client.garth.dump(str(GARMIN_TOKEN_DIR))
-                _persist_garmin_tokens_to_db()
-            profile = client.garth.profile or {}
-            display_name = profile.get("fullName") or profile.get("displayName") or email.strip()
+            if hasattr(client, "garth"):
+                client.garth.login(email.strip(), password, prompt_mfa=prompt_mfa)
+                with _garmin_sync_lock:
+                    client.garth.dump(str(GARMIN_TOKEN_DIR))
+                    _persist_garmin_tokens_to_db()
+                profile = getattr(client.garth, "profile", {}) or {}
+                display_name = profile.get("fullName") or profile.get("displayName") or email.strip()
+            else:
+                client.prompt_mfa = prompt_mfa
+                client.login()
+                with _garmin_sync_lock:
+                    if hasattr(client, "dump"):
+                        client.dump(str(GARMIN_TOKEN_DIR))
+                    _persist_garmin_tokens_to_db()
+                display_name = (
+                    getattr(client, "full_name", None)
+                    or getattr(client, "display_name", None)
+                    or email.strip()
+                )
             attempt.display_name = display_name
             db.update_settings(
                 {
@@ -563,8 +576,12 @@ def _sync_garmin_account_wide(client: Garmin, today_str: str, profile_num: Optio
     # 7. Gear / Running Shoes with mileage
     if not profile_num:
         try:
-            prof = client.garth.profile or {}
-            profile_num = prof.get("profileId") or prof.get("userProfileId") or prof.get("id")
+            if hasattr(client, "garth") and hasattr(client.garth, "profile"):
+                prof = client.garth.profile or {}
+                profile_num = prof.get("profileId") or prof.get("userProfileId") or prof.get("id")
+            elif hasattr(client, "get_user_profile"):
+                prof = client.get_user_profile() or {}
+                profile_num = prof.get("profileId") or prof.get("userProfileId") or prof.get("id")
         except Exception:
             pass
     if profile_num:
@@ -643,7 +660,10 @@ def sync_garmin_wellness(days: int = 14, force_full: bool = False) -> Dict[str, 
         t0 = time.monotonic()
         client = _load_authenticated_client()
         try:
-            client.garth.dump(str(GARMIN_TOKEN_DIR))
+            if hasattr(client, "garth"):
+                client.garth.dump(str(GARMIN_TOKEN_DIR))
+            elif hasattr(client, "dump"):
+                client.dump(str(GARMIN_TOKEN_DIR))
             _persist_garmin_tokens_to_db()
         except Exception:
             pass
