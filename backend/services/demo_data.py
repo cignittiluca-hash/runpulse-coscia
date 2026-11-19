@@ -50,6 +50,7 @@ def seed_demo_data() -> Dict[str, Any]:
 
     activities_added = 0
     garmin_added = 0
+    whoop_added = 0
 
     for offset in range(59, -1, -1):
         d = today - timedelta(days=offset)
@@ -124,6 +125,100 @@ def seed_demo_data() -> Dict[str, Any]:
         )
         garmin_added += 1
 
+        # Whoop 4.0 Daily Metrics
+        if is_high_stress_day:
+            w_rec = rng.randint(28, 48)
+        elif is_hard_yesterday:
+            w_rec = rng.randint(46, 64)
+        else:
+            w_rec = rng.randint(68, 96)
+        w_state = "GREEN" if w_rec >= 67 else ("YELLOW" if w_rec >= 34 else "RED")
+
+        if dow in templates and offset > 0:
+            if dow in (1, 6):
+                w_strain = round(rng.uniform(15.2, 18.4), 1)
+            else:
+                w_strain = round(rng.uniform(10.5, 14.2), 1)
+        else:
+            w_strain = round(rng.uniform(5.4, 8.8), 1)
+
+        w_cal = round(1950 + w_strain * 68 + rng.randint(-60, 60))
+        w_kj = round(w_cal / 0.239006, 0)
+        w_hrv = round(max(38.0, min(105.0, hrv * 1.15 + rng.uniform(-3.5, 3.5))), 1)
+        w_spo2 = round(rng.uniform(97.3, 99.1), 1)
+        w_skin_temp = round(rng.uniform(-0.35, 0.25), 2)
+        w_resp_rate = round(rng.uniform(14.0, 15.2), 1)
+
+        sleep_needed_h = round(7.5 + max(0.0, (w_strain - 10.0) * 0.08) + (0.4 if is_high_stress_day else 0.0), 2)
+        time_in_bed_h = round(sleep_h + rng.uniform(0.35, 0.75), 2)
+        sleep_eff = round((sleep_h / time_in_bed_h) * 100.0, 1)
+        sleep_perf = round(min(100.0, (sleep_h / sleep_needed_h) * 100.0), 1)
+        sleep_debt_m = int(max(0, (sleep_needed_h - sleep_h) * 60))
+        sleep_deep_h = round(sleep_h * rng.uniform(0.19, 0.23), 2)
+        sleep_rem_h = round(sleep_h * rng.uniform(0.21, 0.25), 2)
+        sleep_awake_h = round(max(0.2, time_in_bed_h - sleep_h), 2)
+        sleep_light_h = round(max(0.5, sleep_h - sleep_deep_h - sleep_rem_h), 2)
+
+        w_workouts = []
+        if dow in templates and offset > 0:
+            w_workouts.append({
+                "id": f"whoop_act_{d.isoformat()}",
+                "sport_id": 0,
+                "sport_name": "Corsa",
+                "strain": round(w_strain * 0.88, 1),
+                "avg_hr": int(round(templates[dow][4] + rng.uniform(-3, 3))),
+                "max_hr": int(round(min(max_hr, templates[dow][4] + 18))),
+                "calories": round(templates[dow][2] * 68),
+                "distance_km": templates[dow][2],
+                "start": f"{d.isoformat()}T07:15:00Z",
+                "end": f"{d.isoformat()}T08:15:00Z",
+                "zones_min": {
+                    "z0": 4.5,
+                    "z1": 8.0,
+                    "z2": 22.0,
+                    "z3": 18.5,
+                    "z4": 12.0,
+                    "z5": 2.0
+                }
+            })
+
+        db.upsert_whoop_daily({
+            "date_key": d.isoformat(),
+            "recovery_score": w_rec,
+            "recovery_state": w_state,
+            "user_calibrating": 0,
+            "day_strain": w_strain,
+            "hrv_rmssd": w_hrv,
+            "resting_hr": rhr,
+            "spo2_pct": w_spo2,
+            "skin_temp_celsius": w_skin_temp,
+            "kilojoules": w_kj,
+            "calories": w_cal,
+            "avg_hr": int(round(56 + w_strain * 0.9)),
+            "max_hr": int(round(min(max_hr, 145 + w_strain * 2.1))),
+            "sleep_performance_pct": sleep_perf,
+            "sleep_needed_hours": sleep_needed_h,
+            "sleep_debt_minutes": sleep_debt_m,
+            "sleep_efficiency_pct": sleep_eff,
+            "sleep_consistency_pct": round(rng.uniform(80.0, 93.0), 1),
+            "respiratory_rate": w_resp_rate,
+            "disturbances_count": rng.randint(8, 15),
+            "sleep_cycles_count": int(sleep_h / 1.5),
+            "sleep_hours": sleep_h,
+            "time_in_bed_hours": time_in_bed_h,
+            "sleep_deep_hours": sleep_deep_h,
+            "sleep_rem_hours": sleep_rem_h,
+            "sleep_light_hours": sleep_light_h,
+            "sleep_awake_hours": sleep_awake_h,
+            "sleep_latency_min": round(rng.uniform(8.0, 22.0), 1),
+            "nap_count": 0,
+            "nap_hours": 0.0,
+            "workouts_json": w_workouts,
+            "journal_json": ["Idratazione ottimale", "No schermi prima di dormire", "Magnesio"],
+            "is_demo": 1,
+        })
+        whoop_added += 1
+
         # Create realistic running activity on training days (skip ~12% randomly + today)
         if dow in templates and offset > 0 and rng.random() > 0.12:
             title, cat, base_dist, base_pace, base_hr, drift_f = templates[dow]
@@ -177,4 +272,5 @@ def seed_demo_data() -> Dict[str, Any]:
         "status": "ok",
         "activities_created": activities_added,
         "garmin_days_created": garmin_added,
+        "whoop_days_created": whoop_added,
     }

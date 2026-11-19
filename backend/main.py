@@ -537,21 +537,26 @@ async def whoop_daily_endpoint(days: int = Query(30, ge=1, le=180)):
     return db.get_whoop_range(days=days)
 
 
-# ---------- Garmin Wellness & Auth ----------
+# ---------- Garmin & Whoop Wellness ----------
 @app.get("/api/wellness")
 async def get_wellness(days: int = Query(30, ge=7, le=90)):
     garmin_days = db.get_garmin_daily(days=days)
+    whoop_days = db.get_whoop_daily(days=days)
     activities = db.get_activities(limit=150)
     settings = db.get_settings()
-    summary = build_dashboard_summary(activities, garmin_days, settings)
+    summary = build_dashboard_summary(activities, garmin_days, settings, whoop_days=whoop_days)
     snapshots = db.get_all_garmin_snapshots()
     return {
         "days": garmin_days,
         "latest": get_latest_valid_garmin(garmin_days),
+        "whoop_days": whoop_days,
+        "latest_whoop": db.get_latest_whoop(),
         "readiness": summary["readiness"],
         "snapshots": snapshots,
         "garmin_connected": is_garmin_connected(),
+        "whoop_connected": is_whoop_connected(),
         "garmin_last_sync": settings.get("garmin_last_sync", ""),
+        "whoop_last_sync": settings.get("whoop_last_sync", ""),
     }
 
 

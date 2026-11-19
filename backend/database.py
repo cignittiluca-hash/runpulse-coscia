@@ -155,20 +155,37 @@ class Database:
                     date_key TEXT PRIMARY KEY,
                     recovery_score INTEGER,
                     recovery_state TEXT,
+                    user_calibrating INTEGER DEFAULT 0,
                     day_strain REAL,
                     hrv_rmssd REAL,
                     resting_hr INTEGER,
+                    spo2_pct REAL,
+                    skin_temp_celsius REAL,
+                    kilojoules REAL,
+                    calories REAL,
+                    avg_hr INTEGER,
+                    max_hr INTEGER,
                     sleep_performance_pct REAL,
+                    sleep_needed_hours REAL,
                     sleep_debt_minutes INTEGER,
+                    sleep_efficiency_pct REAL,
+                    sleep_consistency_pct REAL,
+                    respiratory_rate REAL,
+                    disturbances_count INTEGER,
+                    sleep_cycles_count INTEGER,
                     sleep_hours REAL,
+                    time_in_bed_hours REAL,
                     sleep_deep_hours REAL,
                     sleep_rem_hours REAL,
                     sleep_light_hours REAL,
                     sleep_awake_hours REAL,
-                    spo2_pct REAL,
-                    skin_temp_celsius REAL,
-                    kilojoules REAL,
+                    sleep_latency_min REAL,
+                    nap_count INTEGER DEFAULT 0,
+                    nap_hours REAL DEFAULT 0.0,
                     cycle_id TEXT,
+                    hr_zones_json TEXT DEFAULT '{}',
+                    workouts_json TEXT DEFAULT '[]',
+                    journal_json TEXT DEFAULT '[]',
                     raw_json TEXT DEFAULT '{}',
                     is_demo INTEGER DEFAULT 0,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -320,6 +337,57 @@ class Database:
                 for col_name, col_type in extra_garmin_cols:
                     if col_name not in existing_cols:
                         conn.execute(f"ALTER TABLE garmin_daily ADD COLUMN {col_name} {col_type}")
+
+                extra_whoop_cols = [
+                    ("user_calibrating", "INTEGER DEFAULT 0"),
+                    ("calories", "REAL"),
+                    ("avg_hr", "INTEGER"),
+                    ("max_hr", "INTEGER"),
+                    ("sleep_needed_hours", "REAL"),
+                    ("sleep_efficiency_pct", "REAL"),
+                    ("sleep_consistency_pct", "REAL"),
+                    ("respiratory_rate", "REAL"),
+                    ("disturbances_count", "INTEGER"),
+                    ("sleep_cycles_count", "INTEGER"),
+                    ("time_in_bed_hours", "REAL"),
+                    ("sleep_latency_min", "REAL"),
+                    ("nap_count", "INTEGER DEFAULT 0"),
+                    ("nap_hours", "REAL DEFAULT 0.0"),
+                    ("hr_zones_json", "TEXT DEFAULT '{}'"),
+                    ("workouts_json", "TEXT DEFAULT '[]'"),
+                    ("journal_json", "TEXT DEFAULT '[]'"),
+                ]
+                existing_whoop = {
+                    r["name"] for r in conn.execute("PRAGMA table_info(whoop_daily)").fetchall()
+                }
+                for col_name, col_type in extra_whoop_cols:
+                    if col_name not in existing_whoop:
+                        conn.execute(f"ALTER TABLE whoop_daily ADD COLUMN {col_name} {col_type}")
+            else:
+                pg_whoop_cols = [
+                    ("user_calibrating", "INTEGER DEFAULT 0"),
+                    ("calories", "REAL"),
+                    ("avg_hr", "INTEGER"),
+                    ("max_hr", "INTEGER"),
+                    ("sleep_needed_hours", "REAL"),
+                    ("sleep_efficiency_pct", "REAL"),
+                    ("sleep_consistency_pct", "REAL"),
+                    ("respiratory_rate", "REAL"),
+                    ("disturbances_count", "INTEGER"),
+                    ("sleep_cycles_count", "INTEGER"),
+                    ("time_in_bed_hours", "REAL"),
+                    ("sleep_latency_min", "REAL"),
+                    ("nap_count", "INTEGER DEFAULT 0"),
+                    ("nap_hours", "REAL DEFAULT 0.0"),
+                    ("hr_zones_json", "TEXT DEFAULT '{}'"),
+                    ("workouts_json", "TEXT DEFAULT '[]'"),
+                    ("journal_json", "TEXT DEFAULT '[]'"),
+                ]
+                for col_name, col_type in pg_whoop_cols:
+                    try:
+                        conn.execute(f"ALTER TABLE whoop_daily ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                    except Exception:
+                        pass
 
             # Fix any legacy Garmin recoveryTime values that were stored in minutes instead of hours
             conn.execute(
@@ -704,15 +772,22 @@ class Database:
     # ---------- Whoop Daily ----------
     def upsert_whoop_daily(self, record: Dict[str, Any]) -> None:
         rec = dict(record)
-        if "raw_json" in rec and isinstance(rec["raw_json"], (dict, list)):
-            rec["raw_json"] = json.dumps(rec["raw_json"], ensure_ascii=False)
+        for j_key in ("raw_json", "hr_zones_json", "workouts_json", "journal_json"):
+            if j_key in rec and isinstance(rec[j_key], (dict, list)):
+                rec[j_key] = json.dumps(rec[j_key], ensure_ascii=False)
         rec.setdefault("raw_json", "{}")
+        rec.setdefault("hr_zones_json", "{}")
+        rec.setdefault("workouts_json", "[]")
+        rec.setdefault("journal_json", "[]")
 
         keys = [
-            "date_key", "recovery_score", "recovery_state", "day_strain", "hrv_rmssd",
-            "resting_hr", "sleep_performance_pct", "sleep_debt_minutes", "sleep_hours",
-            "sleep_deep_hours", "sleep_rem_hours", "sleep_light_hours", "sleep_awake_hours",
-            "spo2_pct", "skin_temp_celsius", "kilojoules", "cycle_id", "is_demo", "raw_json"
+            "date_key", "recovery_score", "recovery_state", "user_calibrating", "day_strain",
+            "hrv_rmssd", "resting_hr", "spo2_pct", "skin_temp_celsius", "kilojoules", "calories",
+            "avg_hr", "max_hr", "sleep_performance_pct", "sleep_needed_hours", "sleep_debt_minutes",
+            "sleep_efficiency_pct", "sleep_consistency_pct", "respiratory_rate", "disturbances_count",
+            "sleep_cycles_count", "sleep_hours", "time_in_bed_hours", "sleep_deep_hours", "sleep_rem_hours",
+            "sleep_light_hours", "sleep_awake_hours", "sleep_latency_min", "nap_count", "nap_hours",
+            "cycle_id", "hr_zones_json", "workouts_json", "journal_json", "is_demo", "raw_json"
         ]
         present = {k: rec.get(k) for k in keys if k in rec}
         present.setdefault("date_key", rec["date_key"])
@@ -724,6 +799,19 @@ class Database:
         with self.connect() as conn:
             conn.execute(sql, tuple(present.values()))
 
+    @staticmethod
+    def _hydrate_whoop_record(row_dict: Dict[str, Any]) -> Dict[str, Any]:
+        d = dict(row_dict)
+        for key in ("hr_zones_json", "workouts_json", "journal_json", "raw_json"):
+            val = d.get(key)
+            if isinstance(val, str) and val.strip():
+                try:
+                    target_name = key.replace("_json", "") if key != "raw_json" else "raw"
+                    d[target_name] = json.loads(val)
+                except Exception:
+                    pass
+        return d
+
     def get_whoop_daily(self, date_key: Optional[str] = None, days: Optional[int] = None) -> Any:
         if days is not None or isinstance(date_key, int):
             d = days if days is not None else date_key
@@ -732,19 +820,19 @@ class Database:
             return self.get_whoop_range(days=30)
         with self.connect() as conn:
             row = conn.execute("SELECT * FROM whoop_daily WHERE date_key = ?", (date_key,)).fetchone()
-            return dict(row) if row else None
+            return self._hydrate_whoop_record(row) if row else None
 
     def get_latest_whoop(self) -> Optional[Dict[str, Any]]:
         with self.connect() as conn:
             row = conn.execute("SELECT * FROM whoop_daily ORDER BY date_key DESC LIMIT 1").fetchone()
-            return dict(row) if row else None
+            return self._hydrate_whoop_record(row) if row else None
 
     def get_whoop_range(self, days: int = 30) -> List[Dict[str, Any]]:
         with self.connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM whoop_daily ORDER BY date_key DESC LIMIT ?", (days,)
             ).fetchall()
-            return [dict(r) for r in rows]
+            return [self._hydrate_whoop_record(r) for r in rows]
 
     def has_whoop_data(self) -> bool:
         with self.connect() as conn:

@@ -222,7 +222,7 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
             s.whoop_connected
               ? `<div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:12px;margin-bottom:12px;">
                    <div style="color:#10b981;font-weight:700;display:flex;align-items:center;gap:8px;">
-                     <span>✓</span> Whoop è connesso! I dati di recupero e sforzo arrivano in automatico in tempo reale.
+                     <span>✓</span> Whoop è connesso! I dati di recupero, strain e sonno arrivano in automatico.
                    </div>
                    <div style="font-size:0.8rem;color:#93a1be;margin-top:4px;">
                      Ultimo aggiornamento: <strong>${escapeHtml(s.whoop_last_sync || "in attesa del primo dato")}</strong>
@@ -230,13 +230,51 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
                  </div>
                  <div style="display:flex;gap:10px;flex-wrap:wrap;">
                    <button class="btn btn-ghost btn-sm" id="btn-whoop-sync-now" type="button">↻ Sincronizza Adesso</button>
+                   <button class="btn btn-ghost btn-sm" id="btn-whoop-settings-checkin" type="button">✍️ Check-in Whoop di Oggi</button>
                  </div>`
-              : `<p style="color:#cbd5e1;font-size:0.9rem;margin-bottom:14px;line-height:1.5;">
-                   Tocca il pulsante qui sotto per collegare il tuo account Whoop in 1 solo tap: i tuoi dati si aggiorneranno da soli ogni giorno in tempo reale!
-                 </p>
-                 <button class="btn btn-primary" id="btn-whoop-oauth-1tap" style="background:#f59e0b;color:#090c14;font-size:1rem;font-weight:700;padding:12px 22px;display:flex;align-items:center;gap:10px;border:none;">
-                   <span style="font-size:1.25rem;">⚡</span> Connetti Whoop
-                 </button>`
+              : `<div style="display:flex;flex-direction:column;gap:12px;">
+                   <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:14px;">
+                     <strong style="color:#f59e0b;font-size:0.95rem;display:block;margin-bottom:6px;">Metodo 1: Zero-Config via Apple Health (Consigliato per non-tecnici)</strong>
+                     <p style="font-size:0.85rem;color:#cbd5e1;margin:0 0 8px;line-height:1.45;">
+                       Se i tuoi amici non vogliono registrarsi su Whoop Developer, basta che sull'iPhone aprano l'app <strong>Whoop → Impostazioni → Integrazioni → Salute (Apple Health)</strong> e attivino la condivisione di tutti i dati (HRV, Sonno, FC riposo, Calorie, SpO2). I dati fluiscono da soli!
+                     </p>
+                   </div>
+
+                   <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">
+                     <strong style="color:#f3f6fc;font-size:0.95rem;display:block;margin-bottom:6px;">Metodo 2: Check-in Rapido o Webhook Privato</strong>
+                     <p style="font-size:0.85rem;color:#cbd5e1;margin:0 0 10px;line-height:1.45;">
+                       Inserisci Recovery Score %, Strain e Sonno di oggi in 5 secondi, oppure invia un payload JSON al tuo webhook personale.
+                     </p>
+                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                       <button class="btn btn-primary btn-sm" id="btn-whoop-settings-checkin" type="button" style="background:#f59e0b;color:#090c14;border:none;font-weight:700;">
+                         ✍️ Inserisci Dati Whoop di Oggi
+                       </button>
+                       <button class="btn btn-ghost btn-sm" id="btn-toggle-whoop-dev" type="button">
+                         ⚙️ Configura Developer API (OAuth)
+                       </button>
+                     </div>
+                   </div>
+
+                   <div id="whoop-dev-box" style="display:${s.whoop_client_id ? "block" : "none"};background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">
+                     <strong style="color:#c4b5fd;font-size:0.9rem;display:block;margin-bottom:6px;">Metodo 3: Whoop Developer OAuth2</strong>
+                     <p style="font-size:0.83rem;color:#94a3b8;margin:0 0 10px;">
+                       Se hai un account sviluppatore su developer.whoop.com, inserisci qui il Client ID e Secret:
+                     </p>
+                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                       <div>
+                         <label style="font-size:0.75rem;color:#94a3b8;">Whoop Client ID</label>
+                         <input type="text" id="whoop-client-id" class="input" value="${escapeHtml(s.whoop_client_id || "")}" placeholder="Client ID da developer.whoop.com" />
+                       </div>
+                       <div>
+                         <label style="font-size:0.75rem;color:#94a3b8;">Whoop Client Secret</label>
+                         <input type="password" id="whoop-client-secret" class="input" placeholder="${s.whoop_has_secret ? "•••••••••• (già salvato)" : "Client Secret"}" />
+                       </div>
+                     </div>
+                     <button class="btn btn-primary btn-sm" id="btn-whoop-oauth-1tap" type="button" style="background:#8b5cf6;color:#fff;border:none;">
+                       ⚡ Connetti Account Ufficiale Whoop
+                     </button>
+                   </div>
+                 </div>`
           }
         </div>
       </section>
@@ -555,8 +593,26 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
   });
 
   
+  // Whoop Controls & Developer Box Toggle
+  document.getElementById("btn-toggle-whoop-dev")?.addEventListener("click", () => {
+    const box = document.getElementById("whoop-dev-box");
+    if (box) box.style.display = box.style.display === "none" ? "block" : "none";
+  });
+
   // Whoop 1-Tap OAuth & Sync
   document.getElementById("btn-whoop-oauth-1tap")?.addEventListener("click", async () => {
+    const cid = document.getElementById("whoop-client-id")?.value.trim();
+    const csec = document.getElementById("whoop-client-secret")?.value.trim();
+    if (cid) {
+      const updates = { whoop_client_id: cid };
+      if (csec) updates.whoop_client_secret = csec;
+      try {
+        await api.updateSettings(updates);
+      } catch (e) {
+        showToast("Errore salvataggio credenziali Whoop: " + e.message, "error");
+        return;
+      }
+    }
     try {
       const res = await api.getWhoopAuthUrl();
       if (res && res.url) {
@@ -565,6 +621,87 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
     } catch (err) {
       showToast(err.message || "Errore avvio connessione Whoop", "error");
     }
+  });
+
+  document.getElementById("btn-whoop-settings-checkin")?.addEventListener("click", () => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const modal = document.createElement("div");
+    modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+    modal.innerHTML = `
+      <div class="card" style="max-width:440px;width:100%;max-height:90vh;overflow-y:auto;border:1px solid rgba(245,158,11,0.5);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="margin:0;font-size:1.15rem;display:flex;align-items:center;gap:8px;">
+            <span>🟡</span> Check-in Rapido Whoop 4.0
+          </h3>
+          <button class="btn btn-ghost btn-sm" id="modal-close" style="padding:4px 8px;">✕</button>
+        </div>
+        <p class="subtitle" style="margin-bottom:14px;font-size:0.85rem;">
+          Inserisci i valori di oggi direttamente dall'app Whoop:
+        </p>
+        <form id="whoop-checkin-form">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Data</label>
+              <input type="date" id="chk-date" class="input" value="${todayStr}" required style="padding:8px 10px;font-size:0.9rem;" />
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Recovery Score %</label>
+              <input type="number" id="chk-rec" class="input" min="0" max="100" placeholder="es. 84" required style="padding:8px 10px;font-size:0.9rem;" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Day Strain (0-21)</label>
+              <input type="number" step="0.1" id="chk-strain" class="input" min="0" max="21" placeholder="es. 14.8" style="padding:8px 10px;font-size:0.9rem;" />
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">HRV RMSSD (ms)</label>
+              <input type="number" step="0.1" id="chk-hrv" class="input" placeholder="es. 74" style="padding:8px 10px;font-size:0.9rem;" />
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">FC Riposo (bpm)</label>
+              <input type="number" id="chk-rhr" class="input" placeholder="es. 50" style="padding:8px 10px;font-size:0.9rem;" />
+            </div>
+            <div>
+              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Ore Sonno (h)</label>
+              <input type="number" step="0.1" id="chk-sleep" class="input" placeholder="es. 7.5" style="padding:8px 10px;font-size:0.9rem;" />
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:16px;">
+            <button type="submit" class="btn btn-primary" style="flex:1;background:#f59e0b;color:#090c14;border:none;font-weight:700;">
+              💾 Salva Dati Whoop
+            </button>
+            <button type="button" class="btn btn-ghost" id="modal-cancel">Annulla</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const closeModal = () => modal.remove();
+    modal.querySelector("#modal-close")?.addEventListener("click", closeModal);
+    modal.querySelector("#modal-cancel")?.addEventListener("click", closeModal);
+    modal.querySelector("#whoop-checkin-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        date: document.getElementById("chk-date").value,
+        recovery_score: parseInt(document.getElementById("chk-rec").value, 10),
+        day_strain: parseFloat(document.getElementById("chk-strain").value) || null,
+        hrv_rmssd: parseFloat(document.getElementById("chk-hrv").value) || null,
+        resting_hr: parseInt(document.getElementById("chk-rhr").value, 10) || null,
+        sleep_hours: parseFloat(document.getElementById("chk-sleep").value) || null,
+      };
+      try {
+        await api.manualWhoopEntry(payload);
+        showToast("Dati Whoop salvati con successo!", "success");
+        closeModal();
+        await refreshSidebarStatus();
+        renderSettings(container, refreshSidebarStatus, isStale);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    });
   });
 
   document.getElementById("btn-whoop-sync-now")?.addEventListener("click", async (e) => {

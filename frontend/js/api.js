@@ -64,6 +64,11 @@ export const api = {
   syncGarmin: (days = 14, force_full = false) =>
     apiRequest("/api/garmin/sync", { method: "POST", body: { days, force_full } }),
   disconnectGarmin: () => apiRequest("/api/garmin/disconnect", { method: "POST" }),
+  getWhoopConfig: () => apiRequest("/api/whoop/config"),
+  getWhoopAuthUrl: () => apiRequest("/api/whoop/auth-url"),
+  syncWhoop: () => apiRequest("/api/whoop/sync", { method: "POST" }),
+  getWhoopDaily: (days = 30) => apiRequest(`/api/whoop/daily?days=${days}`),
+  manualWhoopEntry: (payload) => apiRequest("/api/whoop/manual", { method: "POST", body: payload }),
   syncAll: (days = 30) => apiRequest("/api/sync-all", { method: "POST", body: { days } }),
   seedDemo: () => apiRequest("/api/demo/seed", { method: "POST" }),
   clearDemo: () => apiRequest("/api/demo/clear", { method: "DELETE" }),

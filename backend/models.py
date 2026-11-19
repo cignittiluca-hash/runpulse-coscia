@@ -71,10 +71,32 @@ class WhoopManualEntry(BaseModel):
     hrv_rmssd: Optional[float] = Field(None, ge=0.0, le=300.0, description="HRV RMSSD in ms")
     resting_hr: Optional[int] = Field(None, ge=30, le=140, description="Frequenza cardiaca a riposo")
     sleep_performance_pct: Optional[float] = Field(None, ge=0.0, le=150.0, description="Performance del sonno %")
+    sleep_needed_hours: Optional[float] = Field(None, ge=0.0, le=24.0, description="Ore di sonno necessarie")
     sleep_debt_minutes: Optional[int] = Field(None, ge=0, le=600, description="Debito di sonno in minuti")
-    sleep_hours: Optional[float] = Field(None, ge=0.0, le=24.0, description="Ore totali di sonno")
-    spo2_percentage: Optional[float] = Field(None, ge=70.0, le=100.0, description="Saturazione ossigeno SpO2")
-    skin_temp_celsius: Optional[float] = Field(None, description="Deviazione o temperatura cutanea")
+    sleep_efficiency_pct: Optional[float] = Field(None, ge=0.0, le=100.0, description="Efficienza sonno %")
+    sleep_consistency_pct: Optional[float] = Field(None, ge=0.0, le=100.0, description="Consistenza orari sonno %")
+    respiratory_rate: Optional[float] = Field(None, ge=5.0, le=35.0, description="Frequenza respiratoria media rpm")
+    disturbances_count: Optional[int] = Field(None, ge=0, le=100, description="Numero di risvegli/disturbi notturni")
+    sleep_cycles_count: Optional[int] = Field(None, ge=0, le=20, description="Cicli completi di sonno")
+    sleep_hours: Optional[float] = Field(None, ge=0.0, le=24.0, description="Ore totali di sonno effettivo")
+    time_in_bed_hours: Optional[float] = Field(None, ge=0.0, le=24.0, description="Ore totali trascorse a letto")
+    sleep_deep_hours: Optional[float] = Field(None, ge=0.0, le=12.0, description="Ore sonno profondo (SWS)")
+    sleep_rem_hours: Optional[float] = Field(None, ge=0.0, le=12.0, description="Ore sonno REM")
+    sleep_light_hours: Optional[float] = Field(None, ge=0.0, le=18.0, description="Ore sonno leggero")
+    sleep_awake_hours: Optional[float] = Field(None, ge=0.0, le=12.0, description="Ore sveglio nel letto")
+    sleep_latency_min: Optional[float] = Field(None, ge=0.0, le=180.0, description="Minuti per addormentarsi")
+    nap_count: Optional[int] = Field(None, ge=0, le=10, description="Numero di sonnellini")
+    nap_hours: Optional[float] = Field(None, ge=0.0, le=10.0, description="Ore sonnellini")
+    spo2_percentage: Optional[float] = Field(None, ge=70.0, le=100.0, description="Saturazione ossigeno SpO2 %")
+    skin_temp_celsius: Optional[float] = Field(None, description="Deviazione o temperatura cutanea °C")
+    calories: Optional[float] = Field(None, ge=0.0, description="Calorie totali bruciate (kcal)")
+    kilojoules: Optional[float] = Field(None, ge=0.0, description="Energia spesa in kilojoules")
+    avg_hr: Optional[int] = Field(None, ge=30, le=220, description="Frequenza cardiaca media 24h")
+    max_hr: Optional[int] = Field(None, ge=40, le=240, description="Frequenza cardiaca massima 24h")
+    user_calibrating: Optional[bool] = Field(False, description="Sensore Whoop in calibrazione")
+    hr_zones: Optional[Dict[str, Any]] = Field(None, description="Minuti trascorsi nelle zone cardio")
+    workouts: Optional[List[Dict[str, Any]]] = Field(None, description="Sessioni di allenamento registrate")
+    journal: Optional[List[str]] = Field(None, description="Fattori di stile di vita e abitudini registrate")
 
 
 class WhoopSyncRequest(BaseModel):
@@ -87,3 +109,7 @@ class WhoopSyncRequest(BaseModel):
     sleep_performance_pct: Optional[float] = None
     sleep_debt_minutes: Optional[int] = None
     sleep_hours: Optional[float] = None
+    spo2_percentage: Optional[float] = None
+    skin_temp_celsius: Optional[float] = None
+    respiratory_rate: Optional[float] = None
+    calories: Optional[float] = None

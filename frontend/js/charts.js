@@ -148,6 +148,83 @@ export function renderGarminStressChart(canvasId, garminDays) {
   });
 }
 
+export function renderWhoopTrendsChart(canvasId, whoopDays) {
+  const labels = whoopDays.map((d) => d.date_key.slice(5));
+  const recoveryColors = whoopDays.map((d) => {
+    const s = d.recovery_score || 0;
+    if (s >= 67) return "rgba(16, 185, 129, 0.75)";
+    if (s >= 34) return "rgba(245, 158, 11, 0.75)";
+    return "rgba(239, 68, 68, 0.75)";
+  });
+
+  return mountChart(canvasId, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          type: "bar",
+          label: "Recovery %",
+          data: whoopDays.map((d) => d.recovery_score),
+          backgroundColor: recoveryColors,
+          borderRadius: 4,
+          yAxisID: "y",
+        },
+        {
+          type: "line",
+          label: "Day Strain (0-21)",
+          data: whoopDays.map((d) => d.day_strain),
+          borderColor: "#3b82f6",
+          backgroundColor: "rgba(59, 130, 246, 0.1)",
+          borderWidth: 2.5,
+          tension: 0.3,
+          pointRadius: 2,
+          yAxisID: "y1",
+        },
+        {
+          type: "line",
+          label: "HRV (RMSSD ms)",
+          data: whoopDays.map((d) => d.hrv_rmssd),
+          borderColor: "#06b6d4",
+          borderDash: [3, 3],
+          borderWidth: 2,
+          tension: 0.3,
+          pointRadius: 1,
+          yAxisID: "y2",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { labels: { color: "#cbd5e1", boxWidth: 12 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { ...baseTicks, maxTicksLimit: 10 } },
+        y: {
+          type: "linear",
+          position: "left",
+          grid: baseGrid,
+          ticks: baseTicks,
+          min: 0,
+          max: 100,
+          title: { display: true, text: "Recovery %", color: "#94a3b8" },
+        },
+        y1: {
+          type: "linear",
+          position: "right",
+          grid: { display: false },
+          ticks: baseTicks,
+          min: 0,
+          max: 21,
+          title: { display: true, text: "Strain (0-21)", color: "#3b82f6" },
+        },
+        y2: { display: false, min: 0, max: 150 },
+      },
+    },
+  });
+}
+
 export function renderHrvSleepChart(canvasId, garminDays) {
   const labels = garminDays.map((d) => d.date_key.slice(5));
   return mountChart(canvasId, {

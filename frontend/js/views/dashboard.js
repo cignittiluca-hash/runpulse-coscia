@@ -32,6 +32,7 @@ export async function renderDashboard(container, navigate, isStale = () => false
   const r = summary.readiness;
   const load = summary.load.current;
   const lg = summary.latest_garmin;
+  const lw = summary.latest_whoop;
   const weeklyGoal = summary.weekly_goal_km || 40;
   const weeklyPct = Math.min(100, Math.round((summary.load.this_week_km / weeklyGoal) * 100));
 
@@ -42,7 +43,7 @@ export async function renderDashboard(container, navigate, isStale = () => false
     rest: "pill-red",
   }[r.zone] || "pill-cyan";
 
-  const showOnboarding = !connections.strava_connected && !connections.garmin_connected;
+  const showOnboarding = !connections.strava_connected && !connections.garmin_connected && !connections.whoop_connected;
   const hasRuns = recent_activities && recent_activities.length > 0;
 
   container.innerHTML = `
@@ -100,10 +101,20 @@ export async function renderDashboard(container, navigate, isStale = () => false
         <div class="coach-meta-chips">
           <span class="chip">⏱️ Passo: ${escapeHtml(daily_advice.target_pace)}</span>
           <span class="chip">💓 Zona: ${escapeHtml(daily_advice.target_zone)}</span>
+          ${
+            lw && lw.recovery_score != null
+              ? `<span class="chip" style="border-color:${lw.recovery_score >= 67 ? "#10b981" : (lw.recovery_score >= 34 ? "#f59e0b" : "#ef4444")};color:${lw.recovery_score >= 67 ? "#10b981" : (lw.recovery_score >= 34 ? "#f59e0b" : "#ef4444")};font-weight:700;">🟡 Whoop: ${lw.recovery_score}% (${escapeHtml(lw.recovery_state || "")})</span>`
+              : ""
+          }
+          ${
+            lw && lw.day_strain != null
+              ? `<span class="chip" style="color:#38bdf8;">⚡ Strain: ${lw.day_strain}</span>`
+              : ""
+          }
           <span class="chip">⚡ Stress Garmin: ${lg && lg.stress_avg != null ? lg.stress_avg + "/100" : "N/D"}</span>
           <span class="chip">🔋 Body Battery: ${lg && (lg.body_battery_current ?? lg.body_battery_max) != null ? `${lg.body_battery_current ?? lg.body_battery_max}${lg.body_battery_max != null && lg.body_battery_current != null && lg.body_battery_current !== lg.body_battery_max ? ` (max ${lg.body_battery_max})` : ""}` : "N/D"}</span>
-          <span class="chip">📈 HRV: ${lg && lg.hrv_avg != null ? Math.round(lg.hrv_avg) + " ms" : "N/D"}</span>
-          <span class="chip">🌙 Sonno: ${lg && lg.sleep_seconds ? formatHoursMin(lg.sleep_seconds) : "N/D"}</span>
+          <span class="chip">📈 HRV: ${lg && lg.hrv_avg != null ? Math.round(lg.hrv_avg) + " ms" : (lw && lw.hrv_rmssd != null ? Math.round(lw.hrv_rmssd) + " ms" : "N/D")}</span>
+          <span class="chip">🌙 Sonno: ${lg && lg.sleep_seconds ? formatHoursMin(lg.sleep_seconds) : (lw && lw.sleep_hours ? `${lw.sleep_hours}h` : "N/D")}</span>
         </div>
 
         ${

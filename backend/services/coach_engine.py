@@ -543,6 +543,20 @@ def _build_athlete_data_snapshot() -> Dict[str, Any]:
             f"Readiness {g.get('training_readiness', 'N/D')}{rec_s}, VO2 {g.get('vo2_max', 'N/D')}{steps_s}{spo2}{resp}{kcal}{imin}"
         )
 
+    whoop_lines = []
+    for w in (whoop_days or [])[-14:]:
+        w_rec = f"Recovery {w.get('recovery_score')}% ({w.get('recovery_state', 'N/D')})" if w.get('recovery_score') is not None else "Recupero N/D"
+        w_str = f"Strain {w.get('day_strain', 'N/D')}" if w.get('day_strain') is not None else ""
+        w_hrv = f"HRV {w.get('hrv_rmssd')}ms" if w.get('hrv_rmssd') is not None else ""
+        w_rhr = f"RHR {w.get('resting_hr')}bpm" if w.get('resting_hr') is not None else ""
+        w_slp = f"Sonno {w.get('sleep_hours')}h (Perf {w.get('sleep_performance_pct', '-')}% / Efficienza {w.get('sleep_efficiency_pct', '-')}% / Debito {w.get('sleep_debt_minutes', 0)}m)" if w.get('sleep_hours') is not None else ""
+        w_resp = f"Resp {w.get('respiratory_rate')}rpm" if w.get('respiratory_rate') is not None else ""
+        w_spo2 = f"SpO2 {w.get('spo2_pct')}%" if w.get('spo2_pct') is not None else ""
+        w_skin = f"Temp {w.get('skin_temp_celsius')}°C" if w.get('skin_temp_celsius') is not None else ""
+        w_cal = f"Kcal {w.get('calories')}" if w.get('calories') is not None else ""
+        parts = [p for p in [w_rec, w_str, w_hrv, w_rhr, w_slp, w_resp, w_spo2, w_skin, w_cal] if p]
+        whoop_lines.append(f"- {w.get('date_key', 'N/D')}: " + " | ".join(parts))
+
     # Full Garmin ecosystem snapshots (Training Status, Race Predictions, Scores, PRs, Gear, Body Comp, Running Dynamics)
     g_snaps = db.get_all_garmin_snapshots()
     extra_garmin_blocks: List[str] = []
@@ -662,6 +676,9 @@ READINESS & CARICO OGGI:
 
 GARMIN ULTIMI 14 GIORNI:
 {chr(10).join(garmin_lines) if garmin_lines else 'Nessun dato Garmin sincronizzato.'}
+
+WHOOP 4.0 ULTIMI 14 GIORNI:
+{chr(10).join(whoop_lines) if whoop_lines else 'Nessun dato Whoop 4.0 sincronizzato.'}
 
 ECOSISTEMA GARMIN AVANZATO:
 {chr(10).join(extra_garmin_blocks) if extra_garmin_blocks else 'Esegui una sincronizzazione Garmin completa per caricare Training Status, Running Dynamics, Scarpe e Record.'}
