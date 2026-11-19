@@ -275,14 +275,17 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
                        <button class="btn btn-primary btn-sm" id="btn-whoop-settings-checkin" type="button" style="background:#f59e0b;color:#090c14;border:none;font-weight:700;">
                          ✍️ Inserisci Dati Whoop di Oggi
                        </button>
-                       <button class="btn btn-ghost btn-sm" id="btn-toggle-whoop-dev" type="button">
-                         ⚙️ Configura Developer API (OAuth)
+                       <button class="btn btn-ghost btn-sm" id="btn-toggle-whoop-dev" type="button" style="font-size:0.75rem;opacity:0.8;">
+                         ⚙️ Avanzate (Solo per Sviluppatori)
                        </button>
                      </div>
                    </div>
 
                    <div id="whoop-dev-box" style="display:${s.whoop_client_id ? "block" : "none"};background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">
                      <strong style="color:#c4b5fd;font-size:0.9rem;display:block;margin-bottom:6px;">Metodo 3: Whoop Developer OAuth2</strong>
+                     <p style="font-size:0.82rem;color:#fca5a5;margin:0 0 10px;background:rgba(239,68,68,0.1);padding:8px;border-radius:6px;border:1px solid rgba(239,68,68,0.3);">
+                       ⚠️ <strong>Attenzione:</strong> Questo pulsante funziona solo per chi ha registrato un'app su <code>developer.whoop.com</code>. Per tutti gli atleti Whoop normali, usa il <strong>Metodo 1 (Salute)</strong> o <strong>Metodo 2 (Check-in rapido)</strong> sopra.
+                     </p>
                      <p style="font-size:0.83rem;color:#94a3b8;margin:0 0 10px;">
                        Se hai un account sviluppatore su developer.whoop.com, inserisci qui il Client ID e Secret:
                      </p>
