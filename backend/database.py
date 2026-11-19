@@ -1,5 +1,6 @@
 """Dual-engine database layer for RunPulse Apple Watch Edition (SQLite locally, PostgreSQL on cloud)."""
 import json
+import os
 import re
 import sqlite3
 from contextlib import contextmanager
@@ -258,12 +259,34 @@ class Database:
             data = dict(DEFAULT_SETTINGS)
             for r in rows:
                 data[r["key"]] = r["value"]
+            # Fallback to env vars if db setting is empty
+            for env_key, setting_key in [
+                ("STRAVA_CLIENT_ID", "strava_client_id"),
+                ("STRAVA_CLIENT_SECRET", "strava_client_secret"),
+                ("GEMINI_API_KEY", "gemini_api_key"),
+                ("GEMINI_MODEL", "gemini_model"),
+                ("APPLE_HEALTH_API_KEY", "apple_health_api_key"),
+            ]:
+                if not data.get(setting_key) and os.getenv(env_key):
+                    data[setting_key] = os.getenv(env_key, "").strip()
             return data
 
     def get_setting(self, key: str, default: str = "") -> str:
         with self.connect() as conn:
             row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-            return row["value"] if row else DEFAULT_SETTINGS.get(key, default)
+            val = row["value"] if row and row["value"] else ""
+            if not val:
+                env_map = {
+                    "strava_client_id": "STRAVA_CLIENT_ID",
+                    "strava_client_secret": "STRAVA_CLIENT_SECRET",
+                    "gemini_api_key": "GEMINI_API_KEY",
+                    "gemini_model": "GEMINI_MODEL",
+                    "apple_health_api_key": "APPLE_HEALTH_API_KEY",
+                }
+                if key in env_map and os.getenv(env_map[key]):
+                    return os.getenv(env_map[key], "").strip()
+                return DEFAULT_SETTINGS.get(key, default)
+            return val
 
     def set_setting(self, key: str, value: Any) -> None:
         with self.connect() as conn:
