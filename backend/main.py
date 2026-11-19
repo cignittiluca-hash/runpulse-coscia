@@ -403,9 +403,11 @@ async def get_dashboard(use_ai: bool = False):
         "connections": {
             "strava_connected": is_strava_connected(),
             "garmin_connected": is_garmin_connected(),
+            "whoop_connected": is_whoop_connected(),
             "gemini_configured": bool(settings.get("gemini_api_key", "").strip()),
             "strava_last_sync": settings.get("strava_last_sync", ""),
             "garmin_last_sync": settings.get("garmin_last_sync", ""),
+            "whoop_last_sync": settings.get("whoop_last_sync", ""),
         },
     }
 

@@ -718,96 +718,102 @@ export async function renderWellness(container, navigate, isStale = () => false)
 
   // Whoop Quick Checkin Modal
   document.getElementById("btn-whoop-quick-checkin")?.addEventListener("click", () => {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const existingRec = latestWhoop ? latestWhoop.recovery_score || "" : "";
-    const existingStrain = latestWhoop ? latestWhoop.day_strain || "" : "";
-    const existingHrv = latestWhoop ? latestWhoop.hrv_rmssd || "" : "";
-    const existingRhr = latestWhoop ? latestWhoop.resting_hr || "" : "";
-    const existingSleep = latestWhoop ? latestWhoop.sleep_hours || "" : "";
-
-    const modal = document.createElement("div");
-    modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
-    modal.innerHTML = `
-      <div class="card" style="max-width:440px;width:100%;max-height:90vh;overflow-y:auto;border:1px solid rgba(245,158,11,0.5);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h3 style="margin:0;font-size:1.15rem;display:flex;align-items:center;gap:8px;">
-            <span>🟡</span> Check-in Rapido Whoop 4.0
-          </h3>
-          <button class="btn btn-ghost btn-sm" id="modal-close" style="padding:4px 8px;">✕</button>
-        </div>
-        <p class="subtitle" style="margin-bottom:14px;font-size:0.85rem;">
-          Se i tuoi amici non usano il developer portal, possono aggiornare i dati Whoop di oggi in 5 secondi da qui:
-        </p>
-
-        <form id="whoop-checkin-form">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Data</label>
-              <input type="date" id="chk-date" class="input" value="${todayStr}" required style="padding:8px 10px;font-size:0.9rem;" />
-            </div>
-            <div>
-              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Recovery Score %</label>
-              <input type="number" id="chk-rec" class="input" min="0" max="100" placeholder="es. 84" value="${existingRec}" required style="padding:8px 10px;font-size:0.9rem;" />
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Day Strain (0-21)</label>
-              <input type="number" step="0.1" id="chk-strain" class="input" min="0" max="21" placeholder="es. 14.8" value="${existingStrain}" style="padding:8px 10px;font-size:0.9rem;" />
-            </div>
-            <div>
-              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">HRV RMSSD (ms)</label>
-              <input type="number" step="0.1" id="chk-hrv" class="input" placeholder="es. 74" value="${existingHrv}" style="padding:8px 10px;font-size:0.9rem;" />
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <div>
-              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">FC a Riposo (bpm)</label>
-              <input type="number" id="chk-rhr" class="input" placeholder="es. 50" value="${existingRhr}" style="padding:8px 10px;font-size:0.9rem;" />
-            </div>
-            <div>
-              <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Ore di Sonno (h)</label>
-              <input type="number" step="0.1" id="chk-sleep" class="input" placeholder="es. 7.5" value="${existingSleep}" style="padding:8px 10px;font-size:0.9rem;" />
-            </div>
-          </div>
-
-          <div style="display:flex;gap:10px;margin-top:16px;">
-            <button type="submit" class="btn btn-primary" style="flex:1;background:#f59e0b;color:#090c14;border:none;font-weight:700;">
-              💾 Salva Dati Whoop
-            </button>
-            <button type="button" class="btn btn-ghost" id="modal-cancel">Annulla</button>
-          </div>
-        </form>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const closeModal = () => modal.remove();
-    modal.querySelector("#modal-close")?.addEventListener("click", closeModal);
-    modal.querySelector("#modal-cancel")?.addEventListener("click", closeModal);
-
-    modal.querySelector("#whoop-checkin-form")?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const payload = {
-        date: document.getElementById("chk-date").value,
-        recovery_score: parseInt(document.getElementById("chk-rec").value, 10),
-        day_strain: parseFloat(document.getElementById("chk-strain").value) || null,
-        hrv_rmssd: parseFloat(document.getElementById("chk-hrv").value) || null,
-        resting_hr: parseInt(document.getElementById("chk-rhr").value, 10) || null,
-        sleep_hours: parseFloat(document.getElementById("chk-sleep").value) || null,
-      };
-
-      try {
-        await api.manualWhoopEntry(payload);
-        showToast("Dati Whoop salvati con successo!", "success");
-        closeModal();
-        renderWellness(container, navigate, isStale);
-      } catch (err) {
-        showToast(err.message, "error");
-      }
+    openWhoopCheckinModal(latestWhoop, () => {
+      renderWellness(container, navigate, isStale);
     });
+  });
+}
+
+export function openWhoopCheckinModal(latestWhoop, onSuccess) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const existingRec = latestWhoop ? latestWhoop.recovery_score || "" : "";
+  const existingStrain = latestWhoop ? latestWhoop.day_strain || "" : "";
+  const existingHrv = latestWhoop ? latestWhoop.hrv_rmssd || "" : "";
+  const existingRhr = latestWhoop ? latestWhoop.resting_hr || "" : "";
+  const existingSleep = latestWhoop ? latestWhoop.sleep_hours || "" : "";
+
+  const modal = document.createElement("div");
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+  modal.innerHTML = `
+    <div class="card" style="max-width:440px;width:100%;max-height:90vh;overflow-y:auto;border:1px solid rgba(245,158,11,0.5);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="margin:0;font-size:1.15rem;display:flex;align-items:center;gap:8px;">
+          <span>🟡</span> Check-in Rapido Whoop 4.0
+        </h3>
+        <button class="btn btn-ghost btn-sm" id="modal-close" style="padding:4px 8px;">✕</button>
+      </div>
+      <p class="subtitle" style="margin-bottom:14px;font-size:0.85rem;">
+        Inserisci o aggiorna i valori Whoop di oggi in 5 secondi:
+      </p>
+
+      <form id="whoop-checkin-form">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Data</label>
+            <input type="date" id="chk-date" class="input" value="${todayStr}" required style="padding:8px 10px;font-size:0.9rem;" />
+          </div>
+          <div>
+            <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Recovery Score %</label>
+            <input type="number" id="chk-rec" class="input" min="0" max="100" placeholder="es. 84" value="${existingRec}" required style="padding:8px 10px;font-size:0.9rem;" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Day Strain (0-21)</label>
+            <input type="number" step="0.1" id="chk-strain" class="input" min="0" max="21" placeholder="es. 14.8" value="${existingStrain}" style="padding:8px 10px;font-size:0.9rem;" />
+          </div>
+          <div>
+            <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">HRV RMSSD (ms)</label>
+            <input type="number" step="0.1" id="chk-hrv" class="input" placeholder="es. 74" value="${existingHrv}" style="padding:8px 10px;font-size:0.9rem;" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">FC a Riposo (bpm)</label>
+            <input type="number" id="chk-rhr" class="input" placeholder="es. 50" value="${existingRhr}" style="padding:8px 10px;font-size:0.9rem;" />
+          </div>
+          <div>
+            <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Ore di Sonno (h)</label>
+            <input type="number" step="0.1" id="chk-sleep" class="input" placeholder="es. 7.5" value="${existingSleep}" style="padding:8px 10px;font-size:0.9rem;" />
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button type="submit" class="btn btn-primary" style="flex:1;background:#f59e0b;color:#090c14;border:none;font-weight:700;">
+            💾 Salva Dati Whoop
+          </button>
+          <button type="button" class="btn btn-ghost" id="modal-cancel">Annulla</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+  modal.querySelector("#modal-close")?.addEventListener("click", closeModal);
+  modal.querySelector("#modal-cancel")?.addEventListener("click", closeModal);
+
+  modal.querySelector("#whoop-checkin-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+      date: document.getElementById("chk-date").value,
+      recovery_score: parseInt(document.getElementById("chk-rec").value, 10),
+      day_strain: parseFloat(document.getElementById("chk-strain").value) || null,
+      hrv_rmssd: parseFloat(document.getElementById("chk-hrv").value) || null,
+      resting_hr: parseInt(document.getElementById("chk-rhr").value, 10) || null,
+      sleep_hours: parseFloat(document.getElementById("chk-sleep").value) || null,
+    };
+
+    try {
+      await api.manualWhoopEntry(payload);
+      showToast("Dati Whoop salvati con successo!", "success");
+      closeModal();
+      if (typeof onSuccess === "function") onSuccess();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
   });
 }

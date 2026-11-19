@@ -51,6 +51,9 @@ async function refreshSidebarStatus() {
         <span class="pill ${s.garmin_connected ? "pill-cyan" : "pill-muted"}">
           Garmin: ${s.garmin_connected ? "Connesso" : "Off"}
         </span>
+        <span class="pill ${s.whoop_connected ? "pill-amber" : "pill-muted"}">
+          Whoop: ${s.whoop_connected ? "Connesso" : "Off"}
+        </span>
       `;
     }
   } catch {

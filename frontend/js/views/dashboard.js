@@ -15,6 +15,7 @@ import {
   renderWeeklyVolumeChart,
 } from "../charts.js";
 import { openActivityModal } from "./activities.js";
+import { openWhoopCheckinModal } from "./wellness.js";
 
 export async function renderDashboard(container, navigate, isStale = () => false) {
   container.innerHTML = `<div class="loading-state">Analisi dati Strava e Garmin in corso...</div>`;
@@ -49,19 +50,19 @@ export async function renderDashboard(container, navigate, isStale = () => false
   container.innerHTML = `
     ${
       showOnboarding
-        ? `<div class="banner">
+        ? `<div class="banner" style="border-color:rgba(245,158,11,0.4);">
             <div>
-              <strong>Collega Strava e Garmin per iniziare con i tuoi dati reali</strong>
+              <strong>Collega Garmin, Whoop 4.0 e Strava per iniziare</strong>
               <p class="subtitle" style="margin-top:4px;">
-                Vai in <b>Connessioni</b> per associare subito il tuo account Strava (OAuth2) e Garmin Connect.
-                ${!hasRuns ? "Oppure carica un set di 60 giorni demo per esplorare subito tutti i grafici." : ""}
+                Vai in <b>Connessioni</b> per associare il tuo account Strava, Garmin Connect e Whoop 4.0 (o usa Apple Health / Check-in rapido).
+                ${!hasRuns ? "Oppure carica un set di 60 giorni demo con corse reali, Body Battery Garmin e Recovery Whoop per esplorare subito l'app." : ""}
               </p>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn btn-primary btn-sm" id="dash-go-settings">🔗 Connetti Strava & Garmin</button>
+              <button class="btn btn-primary btn-sm" id="dash-go-settings">⚡ Connetti Dispositivi (Garmin & Whoop)</button>
               ${
                 !hasRuns
-                  ? `<button class="btn btn-ghost btn-sm" id="dash-load-demo">✨ Prova con Dati Demo</button>`
+                  ? `<button class="btn btn-ghost btn-sm" id="dash-load-demo">✨ Prova con Dati Demo (Garmin + Whoop)</button>`
                   : ""
               }
             </div>
@@ -135,6 +136,96 @@ export async function renderDashboard(container, navigate, isStale = () => false
         <div id="ask-coach-reply"></div>
       </div>
     </section>
+
+    <!-- WHOOP 4.0 DEDICATED SECTION -->
+    ${
+      lw && lw.recovery_score != null
+        ? `
+        <section class="card" style="border-left: 4px solid ${lw.recovery_score >= 67 ? "#10b981" : (lw.recovery_score >= 34 ? "#f59e0b" : "#ef4444")}; margin-bottom: 20px;">
+          <div class="card-header" style="margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:1.4rem;">🟡</span>
+              <div>
+                <div class="card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  Whoop 4.0 · Recupero & Sonno di Oggi
+                  <span class="pill ${lw.recovery_score >= 67 ? "pill-green" : (lw.recovery_score >= 34 ? "pill-amber" : "pill-red")}">
+                    Recovery ${lw.recovery_score}% (${escapeHtml(lw.recovery_state || "BALANCED")})
+                  </span>
+                </div>
+                <div class="subtitle">Aggiornato a ${escapeHtml(lw.date_key || "oggi")} · Sonno, HRV e Day Strain integrati con Garmin</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" id="dash-whoop-checkin">✍️ Check-in</button>
+              <button class="btn btn-primary btn-sm" id="dash-whoop-details" style="background:#f59e0b;color:#090c14;border:none;font-weight:700;">
+                Tutti i Dati Whoop ➔
+              </button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;">
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:0.75rem;color:#94a3b8;margin-bottom:2px;">RECOVERY SCORE</div>
+              <div style="font-size:1.6rem;font-weight:800;color:${lw.recovery_score >= 67 ? "#10b981" : (lw.recovery_score >= 34 ? "#f59e0b" : "#ef4444")}">${lw.recovery_score}%</div>
+              <div style="font-size:0.72rem;color:#cbd5e1;">${escapeHtml(lw.recovery_state || "")}</div>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:0.75rem;color:#94a3b8;margin-bottom:2px;">DAY STRAIN</div>
+              <div style="font-size:1.6rem;font-weight:800;color:#38bdf8;">${lw.day_strain != null ? lw.day_strain : "--"}</div>
+              <div style="font-size:0.72rem;color:#cbd5e1;">scala 0 - 21</div>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:0.75rem;color:#94a3b8;margin-bottom:2px;">HRV RMSSD</div>
+              <div style="font-size:1.6rem;font-weight:800;color:#f3f6fc;">${lw.hrv_rmssd != null ? Math.round(lw.hrv_rmssd) : "--"} <span style="font-size:0.8rem;color:#94a3b8;">ms</span></div>
+              <div style="font-size:0.72rem;color:#cbd5e1;">RHR ${lw.resting_hr || "--"} bpm</div>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:0.75rem;color:#94a3b8;margin-bottom:2px;">ORE DI SONNO</div>
+              <div style="font-size:1.6rem;font-weight:800;color:#c084fc;">${lw.sleep_hours != null ? lw.sleep_hours + "h" : "--"}</div>
+              <div style="font-size:0.72rem;color:#cbd5e1;">nec. ${lw.sleep_needed_hours || "--"}h · deb. ${lw.sleep_debt_minutes || 0}m</div>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:0.75rem;color:#94a3b8;margin-bottom:2px;">EFFICIENZA & RESP</div>
+              <div style="font-size:1.6rem;font-weight:800;color:#10b981;">${lw.sleep_efficiency_pct != null ? Math.round(lw.sleep_efficiency_pct) + "%" : "--"}</div>
+              <div style="font-size:0.72rem;color:#cbd5e1;">${lw.respiratory_rate || "--"} rpm · SpO2 ${lw.spo2_pct ? Math.round(lw.spo2_pct) + "%" : "--"}</div>
+            </div>
+          </div>
+        </section>
+        `
+        : `
+        <section class="card" style="border-left: 4px solid #f59e0b; margin-bottom: 20px; background: rgba(245, 158, 11, 0.04);">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:1.8rem;">🟡</span>
+              <div>
+                <div style="font-weight:700;font-size:1.05rem;color:#f3f6fc;display:flex;align-items:center;gap:8px;">
+                  Whoop 4.0: Non ancora sincronizzato
+                  <span class="pill pill-amber">In attesa dati</span>
+                </div>
+                <div class="subtitle" style="margin-top:2px;font-size:0.85rem;">
+                  Sincronizza il tuo cinturino Whoop 4.0: Recovery Score %, Day Strain, HRV notturna, debito di sonno e frequenza respiratoria per completare il calcolo di Readiness.
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" id="dash-whoop-connect" style="background:#f59e0b;color:#090c14;border:none;font-weight:700;">
+                ⚡ Collega Whoop
+              </button>
+              <button class="btn btn-ghost btn-sm" id="dash-whoop-checkin">
+                ✍️ Check-in Rapido (5s)
+              </button>
+              <button class="btn btn-ghost btn-sm" id="dash-whoop-demo">
+                ✨ Prova con Dati Demo
+              </button>
+            </div>
+          </div>
+        </section>
+        `
+    }
 
     <!-- Primary KPIs -->
     <section class="grid-4">
@@ -285,20 +376,29 @@ export async function renderDashboard(container, navigate, isStale = () => false
   document.getElementById("dash-go-activities")?.addEventListener("click", () => navigate("activities"));
   document.getElementById("dash-go-plans")?.addEventListener("click", () => navigate("plans"));
 
-  document.getElementById("dash-load-demo")?.addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
+  // Whoop direct controls on dashboard
+  document.getElementById("dash-whoop-connect")?.addEventListener("click", () => navigate("settings"));
+  document.getElementById("dash-whoop-details")?.addEventListener("click", () => navigate("wellness"));
+  document.getElementById("dash-whoop-checkin")?.addEventListener("click", () => {
+    openWhoopCheckinModal(lw, () => renderDashboard(container, navigate, isStale));
+  });
+
+  const runSeedDemo = async (btn) => {
     btn.disabled = true;
     btn.textContent = "Generazione dati...";
     try {
       await api.seedDemo();
-      showToast("Caricati 60 giorni di dati demo Strava + Garmin!", "success");
+      showToast("Caricati 60 giorni di dati demo Garmin + Whoop 4.0!", "success");
       renderDashboard(container, navigate, isStale);
     } catch (err) {
       showToast(err.message, "error");
       btn.disabled = false;
       btn.textContent = "✨ Prova con Dati Demo";
     }
-  });
+  };
+
+  document.getElementById("dash-load-demo")?.addEventListener("click", (e) => runSeedDemo(e.currentTarget));
+  document.getElementById("dash-whoop-demo")?.addEventListener("click", (e) => runSeedDemo(e.currentTarget));
 
   document.getElementById("btn-refresh-ai")?.addEventListener("click", async (e) => {
     const btn = e.currentTarget;
