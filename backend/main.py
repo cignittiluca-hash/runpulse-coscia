@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response as RawResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.config import APP_PORT, APP_SECRET_SALT, BASE_URL, FRONTEND_DIR
+from backend.config import APP_PORT, APP_SECRET_SALT, BASE_DIR, BASE_URL, FRONTEND_DIR
 from backend.database import db
 
 from backend.models import (

@@ -213,3 +213,9 @@ def test_garmin_token_import_bypass(client):
     assert db.get_setting("garmin_connected") == "true"
 
 
+def test_garmin_login_script_download(client):
+    resp = client.get("/garmin_login.py")
+    assert resp.status_code == 200
+    assert "RunPulse" in resp.text
+
+
