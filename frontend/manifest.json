@@ -1,0 +1,29 @@
+{
+  "name": "RunPulse — Personal Running Coach",
+  "short_name": "RunPulse",
+  "description": "Dashboard personale Strava + Garmin con analisi stress, coach ibrido AI e piani gara.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090c14",
+  "theme_color": "#090c14",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

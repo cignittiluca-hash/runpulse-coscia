@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090c14" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="RunPulse" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>RunPulse — Personal Running Coach</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Desktop Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="/static/icons/icon.svg" alt="RunPulse" class="brand-logo" />
+        <div>
+          <div class="brand-name">RunPulse</div>
+          <div class="brand-sub">Garmin × Whoop × Strava</div>
+        </div>
+      </div>
+
+      <nav class="nav-list" id="sidebar-nav">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">⚡</span>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="activities">
+          <span class="nav-icon">🏃</span>
+          <span>Corse & Analisi</span>
+        </button>
+        <button class="nav-item" data-view="wellness">
+          <span class="nav-icon">🔋</span>
+          <span>Recupero & Dispositivi</span>
+        </button>
+        <button class="nav-item" data-view="plans">
+          <span class="nav-icon">🎯</span>
+          <span>Obiettivo Gara</span>
+        </button>
+        <button class="nav-item" data-view="calippo">
+          <img src="/static/icons/calippo.jpg" alt="Calippo" class="nav-avatar" />
+          <span>Calippo AI</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+          <span class="nav-icon">⚙️</span>
+          <span>Connessioni</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="conn-pills" id="sidebar-conn-pills">
+          <span class="pill pill-muted">Strava: ...</span>
+          <span class="pill pill-muted">Garmin: ...</span>
+        </div>
+        <button class="btn btn-primary btn-full" id="btn-global-sync">
+          <span class="sync-spin">↻</span> Sincronizza Ora
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Dashboard</h1>
+          <p id="page-subtitle" class="subtitle">Analisi giornaliera del recupero e del carico di allenamento</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost btn-sm mobile-only" id="btn-mobile-sync">↻ Sync</button>
+          <div class="athlete-badge" id="athlete-badge">Runner</div>
+        </div>
+      </header>
+
+      <div id="ios-install-banner" class="ios-install-banner hidden">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <img src="/static/icons/icon-192.png" alt="RunPulse" style="width:36px;height:36px;border-radius:9px;" />
+          <div style="font-size:0.82rem;line-height:1.35;">
+            <strong>Installa RunPulse su iPhone</strong><br/>
+            <span style="color:#cbd5e1;">Tocca <strong>Condividi (↑)</strong> in basso su Safari → <strong>Aggiungi alla schermata Home</strong></span>
+          </div>
+        </div>
+        <button class="btn-icon" id="ios-banner-close" aria-label="Chiudi">✕</button>
+      </div>
+
+      <div id="view-container" class="view-container">
+        <div class="loading-state">Caricamento dati RunPulse...</div>
+      </div>
+    </main>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="bottom-nav-item active" data-view="dashboard">
+        <span>⚡</span><small>Home</small>
+      </button>
+      <button class="bottom-nav-item" data-view="activities">
+        <span>🏃</span><small>Corse</small>
+      </button>
+      <button class="bottom-nav-item" data-view="wellness">
+        <span>🔋</span><small>Recupero</small>
+      </button>
+      <button class="bottom-nav-item" data-view="plans">
+        <span>🎯</span><small>Piano</small>
+      </button>
+      <button class="bottom-nav-item" data-view="calippo">
+        <img src="/static/icons/calippo.jpg" alt="Calippo" class="nav-avatar-sm" />
+        <small>Calippo</small>
+      </button>
+      <button class="bottom-nav-item" data-view="settings">
+        <span>⚙️</span><small>Setup</small>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Floating Calippo Quick-Chat Widget -->
+  <button id="calippo-fab" class="calippo-fab" title="Chatta con Calippo AI" aria-label="Chatta con Calippo">
+    <img src="/static/icons/calippo.jpg" alt="Calippo" />
+    <span class="calippo-fab-label">Calippo</span>
+    <span class="online-dot"></span>
+  </button>
+
+  <div id="calippo-drawer" class="calippo-drawer hidden">
+    <div class="calippo-drawer-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="/static/icons/calippo.jpg" alt="Calippo" class="calippo-avatar-sm" />
+        <div>
+          <div style="font-weight:800;font-size:0.95rem;">Calippo AI</div>
+          <div style="font-size:0.72rem;color:#93a1be;">Connesso a Garmin, Whoop & Strava</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn-icon" id="calippo-drawer-expand" title="Apri a schermo intero">⤢</button>
+        <button class="btn-icon" id="calippo-drawer-close" title="Chiudi">✕</button>
+      </div>
+    </div>
+    <div id="calippo-drawer-messages" class="calippo-drawer-messages"></div>
+    <form id="calippo-drawer-form" class="calippo-drawer-form">
+      <input class="input" id="calippo-drawer-input" placeholder="Chiedi a Calippo..." autocomplete="off" />
+      <button class="btn btn-primary btn-sm" id="calippo-drawer-send" type="submit">Invia</button>
+    </form>
+  </div>
+
+  <!-- Run Deep-Dive Modal -->
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div class="modal-card" id="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-title">Dettaglio Corsa</h2>
+          <p id="modal-subtitle" class="subtitle"></p>
+        </div>
+        <button class="btn-icon" id="modal-close" aria-label="Chiudi">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Optional Remote Access Lock Screen -->
+  <div id="lock-screen" class="lock-screen hidden">
+    <form id="lock-form" class="lock-card">
+      <img src="/static/icons/icon-192.png" alt="RunPulse" style="width:64px;height:64px;border-radius:16px;margin:0 auto 12px;display:block;" />
+      <h2 style="text-align:center;font-size:1.3rem;margin-bottom:4px;">RunPulse Protetto</h2>
+      <p class="subtitle" style="text-align:center;margin-bottom:16px;">Inserisci il tuo PIN / Password personale per accedere ai dati Strava e Garmin.</p>
+      <input class="input" id="lock-password" type="password" placeholder="PIN o Password" autocomplete="current-password" required style="margin-bottom:12px;" />
+      <button class="btn btn-primary btn-full" type="submit" id="lock-submit">🔓 Sblocca RunPulse</button>
+      <div id="lock-error" style="color:#f87171;font-size:0.82rem;text-align:center;margin-top:10px;"></div>
+    </form>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
