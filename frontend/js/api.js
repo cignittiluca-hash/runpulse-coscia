@@ -61,6 +61,8 @@ export const api = {
     apiRequest("/api/garmin/login", { method: "POST", body: { email, password, mfa_code } }),
   submitGarminMfa: (mfa_code) =>
     apiRequest("/api/garmin/mfa", { method: "POST", body: { mfa_code } }),
+  importGarminTokens: (tokens_json) =>
+    apiRequest("/api/garmin/import-tokens", { method: "POST", body: { tokens_json } }),
   syncGarmin: (days = 14, force_full = false) =>
     apiRequest("/api/garmin/sync", { method: "POST", body: { days, force_full } }),
   disconnectGarmin: () => apiRequest("/api/garmin/disconnect", { method: "POST" }),

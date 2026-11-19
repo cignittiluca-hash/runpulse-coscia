@@ -218,7 +218,9 @@ def login_garmin(email: str, password: str, mfa_code: Optional[str] = None) -> D
 
     if attempt.error:
         err_msg = attempt.error
-        if "Authentication" in err_msg or "credential" in err_msg.lower() or "401" in err_msg:
+        if "403" in err_msg or "strategies exhausted" in err_msg.lower():
+            err_msg = "Garmin ha bloccato l'accesso diretto da server cloud (blocco anti-bot Akamai 403). Usa l'opzione 'Bypass Blocco Cloud (Incolla Token)' qui sotto per collegarlo in 10 secondi."
+        elif "Authentication" in err_msg or "credential" in err_msg.lower() or "401" in err_msg:
             err_msg = "Email o password di Garmin Connect non corrette. Verifica i dati di accesso."
         elif "429" in err_msg or "rate limit" in err_msg.lower():
             err_msg = "Garmin ha temporaneamente limitato le richieste. Attendi 2 minuti e riprova."
@@ -228,6 +230,63 @@ def login_garmin(email: str, password: str, mfa_code: Optional[str] = None) -> D
         "status": "connected",
         "display_name": attempt.display_name or email.strip(),
         "message": "Account Garmin Connect collegato con successo!",
+    }
+
+
+def import_garmin_tokens(token_payload: str) -> Dict[str, Any]:
+    """
+    Imports Garmin session tokens (JSON payload) to bypass Cloudflare/Akamai 403
+    blocks on cloud hosting servers.
+    """
+    import json
+    try:
+        data = json.loads(token_payload.strip())
+    except Exception as exc:
+        raise ValueError(f"JSON del token non valido: {exc}")
+
+    o1_text = ""
+    o2_text = ""
+
+    if isinstance(data, dict):
+        if "oauth1" in data and "oauth2" in data:
+            o1_text = json.dumps(data["oauth1"]) if isinstance(data["oauth1"], dict) else str(data["oauth1"])
+            o2_text = json.dumps(data["oauth2"]) if isinstance(data["oauth2"], dict) else str(data["oauth2"])
+        elif "oauth1_token.json" in data and "oauth2_token.json" in data:
+            o1_text = json.dumps(data["oauth1_token.json"]) if isinstance(data["oauth1_token.json"], dict) else str(data["oauth1_token.json"])
+            o2_text = json.dumps(data["oauth2_token.json"]) if isinstance(data["oauth2_token.json"], dict) else str(data["oauth2_token.json"])
+        elif "di_token" in data or "token" in data or "access_token" in data:
+            o2_text = json.dumps(data)
+            o1_text = "{}"
+
+    if not o2_text and not o1_text:
+        raise ValueError("Formato token non riconosciuto. Incolla il JSON valido contenente oauth1 e oauth2.")
+
+    GARMIN_TOKEN_DIR.mkdir(parents=True, exist_ok=True)
+    if o1_text:
+        (GARMIN_TOKEN_DIR / "oauth1_token.json").write_text(o1_text, encoding="utf-8")
+    if o2_text:
+        (GARMIN_TOKEN_DIR / "oauth2_token.json").write_text(o2_text, encoding="utf-8")
+
+    db.update_settings(
+        {
+            "garmin_oauth1_json": o1_text,
+            "garmin_oauth2_json": o2_text,
+            "garmin_connected": "true",
+        }
+    )
+
+    try:
+        client = _load_authenticated_client()
+        display_name = getattr(client, "full_name", None) or getattr(client, "display_name", None) or "Garmin Runner"
+    except Exception:
+        display_name = "Garmin Runner"
+
+    db.update_settings({"garmin_display_name": display_name})
+
+    return {
+        "status": "connected",
+        "display_name": display_name,
+        "message": "Token Garmin importati con successo! Connessione attiva.",
     }
 
 

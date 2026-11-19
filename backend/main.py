@@ -27,6 +27,7 @@ from backend.models import (
     CoachQuestionRequest,
     GarminLoginRequest,
     GarminMfaRequest,
+    GarminImportTokensRequest,
     RaceGoalCreate,
     SettingsUpdate,
     SyncRequest,
@@ -58,6 +59,7 @@ from backend.services.garmin_service import (
     is_garmin_connected,
     login_garmin,
     submit_garmin_mfa,
+    import_garmin_tokens,
     sync_garmin_wellness,
 )
 from backend.services.plan_generator import adapt_plan_for_recovery, generate_race_plan
@@ -580,6 +582,16 @@ async def garmin_mfa_endpoint(req: GarminMfaRequest):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.post("/api/garmin/import-tokens")
+async def garmin_import_tokens_endpoint(req: GarminImportTokensRequest):
+    try:
+        return await asyncio.to_thread(import_garmin_tokens, req.tokens_json)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Errore importazione token Garmin: {exc}")
+
+
 @app.post("/api/garmin/sync")
 async def garmin_sync_endpoint(req: SyncRequest = SyncRequest(days=14)):
     try:
@@ -846,6 +858,14 @@ async def backup_import_endpoint(payload: Dict[str, Any]):
     counts = db.import_full_backup(payload)
     _restore_garmin_tokens_from_db()
     return {"status": "ok", "imported": counts}
+
+
+@app.get("/garmin_login.py")
+async def download_garmin_script():
+    script_path = BASE_DIR / "garmin_login.py"
+    if script_path.exists():
+        return FileResponse(str(script_path), media_type="text/x-python", filename="garmin_login.py")
+    raise HTTPException(status_code=404, detail="Script non trovato")
 
 
 # ---------- PWA Frontend Serving ----------

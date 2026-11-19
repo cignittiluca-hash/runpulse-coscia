@@ -201,3 +201,15 @@ def test_apple_health_whoop_bridge_sync(client):
     assert resp.json()["status"] == "ok"
 
 
+def test_garmin_token_import_bypass(client):
+    import json
+    dummy_payload = json.dumps({
+        "oauth1": {"oauth_token": "mock_token", "oauth_token_secret": "mock_secret"},
+        "oauth2": {"access_token": "mock_access", "refresh_token": "mock_refresh"}
+    })
+    resp = client.post("/api/garmin/import-tokens", json={"tokens_json": dummy_payload})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "connected"
+    assert db.get_setting("garmin_connected") == "true"
+
+

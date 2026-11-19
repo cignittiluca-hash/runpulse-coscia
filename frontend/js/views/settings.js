@@ -198,6 +198,32 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
           </div>
         </form>
 
+        <!-- Token Bypass Box (for cloud deployments blocked by Garmin 403) -->
+        <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,0.08);padding-top:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:0.83rem;color:#cbd5e1;">
+              <strong>Blocco Cloud Garmin 403?</strong> Garmin a volte blocca i server cloud. Puoi bypassarlo in 10s:
+            </div>
+            <button class="btn btn-ghost btn-sm" id="btn-toggle-garmin-token" type="button" style="font-size:0.75rem;padding:4px 8px;">
+              🔑 Incolla Token di Sessione
+            </button>
+          </div>
+          <div id="garmin-token-box" style="display:none;margin-top:10px;background:rgba(0,0,0,0.3);padding:14px;border-radius:10px;border:1px solid rgba(0,180,216,0.35);">
+            <p style="font-size:0.82rem;color:#cbd5e1;margin-bottom:8px;line-height:1.4;">
+              1. Scarica lo script helper sul tuo computer (o terminale):<br/>
+              <code>python3 garmin_login.py</code> (si collega da casa tua senza blocchi e genera il token).<br/>
+              2. Incolla qui sotto il testo generato e clicca <b>Salva Token</b>:
+            </p>
+            <textarea id="garmin-token-input" class="input" rows="3" placeholder='{"oauth1": {...}, "oauth2": {...}}' style="font-family:monospace;font-size:0.78rem;width:100%;resize:vertical;"></textarea>
+            <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
+              <button class="btn btn-garmin btn-sm" id="btn-submit-garmin-token" type="button">💾 Salva Token & Connetti</button>
+              <a href="/garmin_login.py" download="garmin_login.py" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;">
+                📥 Scarica garmin_login.py
+              </a>
+            </div>
+          </div>
+        </div>
+
         ${
           s.garmin_connected
             ? `<div class="subtitle" style="margin-top:12px;">Profilo: <strong>${escapeHtml(s.garmin_display_name)}</strong> · Ultimo sync: ${escapeHtml(s.garmin_last_sync || "mai")}</div>`
@@ -561,6 +587,37 @@ export async function renderSettings(container, refreshSidebarStatus, isStale = 
       showToast(err.message, "error");
       btn.disabled = false;
       btn.textContent = "Verifica";
+    }
+  });
+
+  // Garmin Cloud 403 Token Bypass
+  document.getElementById("btn-toggle-garmin-token")?.addEventListener("click", () => {
+    const box = document.getElementById("garmin-token-box");
+    if (box) box.style.display = box.style.display === "none" ? "block" : "none";
+  });
+
+  document.getElementById("btn-submit-garmin-token")?.addEventListener("click", async () => {
+    const input = document.getElementById("garmin-token-input");
+    const val = input ? input.value.trim() : "";
+    if (!val) {
+      showToast("Incolla prima il token JSON generato dallo script.", "error");
+      return;
+    }
+    const btn = document.getElementById("btn-submit-garmin-token");
+    btn.disabled = true;
+    btn.textContent = "Verifica token...";
+    try {
+      const res = await api.importGarminTokens(val);
+      showToast(res.message || "Garmin collegato con successo!", "success");
+      try {
+        await api.syncGarmin(14);
+      } catch {}
+      await refreshSidebarStatus();
+      renderSettings(container, refreshSidebarStatus);
+    } catch (err) {
+      showToast(err.message, "error");
+      btn.disabled = false;
+      btn.textContent = "💾 Salva Token & Connetti";
     }
   });
 

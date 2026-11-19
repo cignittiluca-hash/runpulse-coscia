@@ -35,6 +35,10 @@ class GarminMfaRequest(BaseModel):
     mfa_code: str
 
 
+class GarminImportTokensRequest(BaseModel):
+    tokens_json: str
+
+
 class RaceGoalCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=120)
     distance_type: str = Field(..., pattern="^(5k|10k|half_marathon|marathon)$")
