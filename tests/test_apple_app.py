@@ -178,3 +178,96 @@ def test_postgres_sql_translator():
     )
     assert "%(date_key)s" in sql_named
     assert "%(hrv_avg)s" in sql_named
+
+
+def test_apple_health_italian_strings_and_empty():
+    client = TestClient(app)
+    s = client.get("/api/settings").json()
+    token = s["apple_health_api_key"]
+
+    # Typical Italian iOS Shortcut payload with units, commas and empty values
+    payload = {
+        "date": "2026-11-20",
+        "hrv_sdnn_ms": "64,2 ms",
+        "resting_hr": "51 bpm",
+        "sleep_hours": "7,8 ore",
+        "sleep_deep_hours": "1,3 h",
+        "sleep_rem_hours": "1,9 h",
+        "vo2_max": "54,2",
+        "steps": "11.850 passi",
+        "active_calories": "630 kcal",
+        "exercise_min": "45 min",
+        "stand_hours": "12 ore",
+        "spo2_pct": "98 %",
+        "respiration_rate": "",  # Empty string from iOS
+        "auth_token": token,
+    }
+    resp = client.post("/api/apple-health/sync", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+
+    w = client.get("/api/wellness").json()
+    day = next(d for d in w["days"] if d["date_key"] == "2026-11-20")
+    assert day["hrv_avg"] == 64.2
+    assert day["resting_hr"] == 51
+    assert day["steps"] == 11850
+    assert day["active_calories"] == 630
+
+
+def test_apple_health_get_query_sync():
+    client = TestClient(app)
+    s = client.get("/api/settings").json()
+    token = s["apple_health_api_key"]
+
+    # Simple GET ping test
+    ping = client.get("/api/apple-health/sync")
+    assert ping.status_code == 200
+    assert "riuscita" in ping.json()["message"]
+
+    # 1-action iOS Shortcut GET sync via URL parameters
+    resp = client.get(
+        f"/api/apple-health/sync?date=2026-11-21&hrv_sdnn_ms=66.0&resting_hr=48&sleep_hours=8.0&steps=10500&auth_token={token}"
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+
+
+def test_apple_health_auto_export_format():
+    client = TestClient(app)
+    s = client.get("/api/settings").json()
+    token = s["apple_health_api_key"]
+
+    hae_payload = {
+        "data": {
+            "metrics": [
+                {
+                    "name": "heart_rate_variability_sdnn",
+                    "units": "ms",
+                    "data": [{"date": "2026-11-22 07:15:00 +0100", "qty": 71.5}],
+                },
+                {
+                    "name": "resting_heart_rate",
+                    "units": "count/min",
+                    "data": [{"date": "2026-11-22 07:15:00 +0100", "qty": 49}],
+                },
+                {
+                    "name": "sleep_analysis",
+                    "units": "hr",
+                    "data": [{"date": "2026-11-22 07:00:00 +0100", "qty": 7.5, "deep": 1.4, "rem": 1.8}],
+                },
+                {
+                    "name": "step_count",
+                    "data": [{"date": "2026-11-22 18:00:00 +0100", "qty": 13200}],
+                },
+            ]
+        }
+    }
+    resp = client.post(
+        "/api/apple-health/sync",
+        headers={"x-apple-health-token": token},
+        json=hae_payload,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+

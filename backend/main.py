@@ -36,6 +36,7 @@ from backend.services.apple_health_service import (
     ingest_apple_health_payload,
     ingest_manual_entry,
     is_apple_health_connected,
+    parse_health_auto_export_payload,
 )
 from backend.services.coach_engine import (
     analyze_single_run,
@@ -403,17 +404,87 @@ async def get_wellness(days: int = Query(30, ge=7, le=90)):
     }
 
 
-@app.post("/api/apple-health/sync")
-async def apple_health_sync_endpoint(payload: AppleHealthSyncRequest, request: Request):
+@app.api_route("/api/apple-health/sync", methods=["GET", "POST"])
+async def apple_health_sync_endpoint(
+    request: Request,
+    date: Optional[str] = Query(None),
+    hrv: Optional[str] = Query(None, alias="hrv_sdnn_ms"),
+    rhr: Optional[str] = Query(None, alias="resting_hr"),
+    sleep: Optional[str] = Query(None, alias="sleep_hours"),
+    sleep_deep: Optional[str] = Query(None, alias="sleep_deep_hours"),
+    sleep_rem: Optional[str] = Query(None, alias="sleep_rem_hours"),
+    vo2: Optional[str] = Query(None, alias="vo2_max"),
+    steps: Optional[str] = Query(None),
+    active_calories: Optional[str] = Query(None),
+    exercise_min: Optional[str] = Query(None),
+    stand_hours: Optional[str] = Query(None),
+    token: Optional[str] = Query(None, alias="auth_token"),
+):
     """
-    Ingests wellness data from an iPhone via iOS Shortcuts ('Comandi Rapidi')
-    or from apps like Health Auto Export.
+    Ingests wellness data from an iPhone via:
+    1. iOS Shortcuts GET/POST (single URL without complex dictionary)
+    2. iOS Shortcuts POST JSON (with automatic cleaning of Italian commas and units like 'ms' or 'bpm')
+    3. Health Auto Export App (native background webhook)
     """
     settings = db.get_settings()
     expected_token = settings.get("apple_health_api_key", "").strip()
 
-    # Check header token or payload token
-    hdr_token = request.headers.get("x-apple-health-token") or request.headers.get("authorization", "").replace("Bearer ", "").strip()
+    hdr_token = (
+        request.headers.get("x-apple-health-token")
+        or request.headers.get("authorization", "").replace("Bearer ", "").strip()
+        or token
+    )
+
+    payload: Optional[AppleHealthSyncRequest] = None
+
+    if request.method == "POST":
+        content_type = request.headers.get("content-type", "").lower()
+        if "application/json" in content_type:
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+            if isinstance(body, dict):
+                # Health Auto Export payload detection
+                if ("data" in body and isinstance(body.get("data"), dict) and "metrics" in body["data"]) or ("metrics" in body):
+                    payload = parse_health_auto_export_payload(body, token=hdr_token)
+                else:
+                    if not body.get("auth_token") and hdr_token:
+                        body["auth_token"] = hdr_token
+                    payload = AppleHealthSyncRequest(**body)
+        elif "form" in content_type:
+            form_data = await request.form()
+            form_dict = dict(form_data)
+            if not form_dict.get("auth_token") and hdr_token:
+                form_dict["auth_token"] = hdr_token
+            payload = AppleHealthSyncRequest(**form_dict)
+
+    # Fallback to query params if GET or if POST body had no payload
+    if payload is None:
+        # Check if this is a connection test ping with no params
+        has_any_metric = any(x is not None for x in (hrv, rhr, sleep, vo2, steps, active_calories))
+        if not has_any_metric and request.method == "GET":
+            return {
+                "status": "ok",
+                "message": "Connessione Apple Health a RunPulse riuscita! Il webhook è attivo e pronto a ricevere i dati da iPhone.",
+                "server_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+
+        payload = AppleHealthSyncRequest(
+            date=date,
+            hrv_sdnn_ms=hrv,
+            resting_hr=rhr,
+            sleep_hours=sleep,
+            sleep_deep_hours=sleep_deep,
+            sleep_rem_hours=sleep_rem,
+            vo2_max=vo2,
+            steps=steps,
+            active_calories=active_calories,
+            exercise_min=exercise_min,
+            stand_hours=stand_hours,
+            auth_token=token or hdr_token,
+        )
+
     req_token = payload.auth_token or hdr_token
 
     if expected_token and req_token != expected_token and not _is_request_authorized(request):

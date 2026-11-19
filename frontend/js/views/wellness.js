@@ -347,55 +347,83 @@ async function _openShortcutModal() {
   } catch {}
 
   const sampleJsonStr = JSON.stringify(cfg.sample_payload || {}, null, 2);
+  const quickUrlExample = `${cfg.webhook_url}?hrv=[Variabilità]&rhr=[Frequenza]&sleep=[Sonno]&token=${cfg.auth_token}`;
 
   host.innerHTML = `
     <div class="modal-backdrop" id="shortcut-modal">
-      <div class="modal-card" style="max-width:620px;">
+      <div class="modal-card" style="max-width:680px;max-height:90vh;overflow-y:auto;">
         <div class="modal-header">
           <div>
-            <h2 style="font-size:1.25rem;margin:0;">📲 Sincronizzazione Apple Health da iPhone</h2>
-            <p class="subtitle" style="margin:2px 0 0;">Configura un Comando Rapido su iOS in 2 minuti (gratis per sempre)</p>
+            <h2 style="font-size:1.25rem;margin:0;">📲 Sincronizzazione Apple Watch & Salute</h2>
+            <p class="subtitle" style="margin:2px 0 0;">Configura in 2 minuti: scegli il metodo più comodo per te (100% gratis)</p>
           </div>
           <button class="btn-icon" id="shortcut-modal-close">✕</button>
         </div>
         <div class="modal-body" style="font-size:0.88rem;line-height:1.5;">
-          <p style="color:#cbd5e1;margin-top:0;">
-            Grazie all'app nativa <strong>Comandi Rapidi (Shortcuts)</strong> di iOS, il tuo iPhone può inviare automaticamente a RunPulse le tue metriche ogni mattina (ad esempio quando suona la sveglia o con un tap dal widget!).
-          </p>
 
-          <div style="background:#131826;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin:12px 0;">
-            <div style="font-size:0.75rem;color:#93a1be;margin-bottom:4px;">1. IL TUO INDIRIZZO WEBHOOK PERSONALE:</div>
+          <!-- Info Box credenziali -->
+          <div style="background:#131826;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin-bottom:16px;">
+            <div style="font-size:0.75rem;color:#93a1be;margin-bottom:4px;">INDIRIZZO WEBHOOK PERSONALE:</div>
             <div style="display:flex;gap:8px;align-items:center;">
               <input class="input" readonly value="${escapeHtml(cfg.webhook_url)}" id="sc-input-url" style="font-family:monospace;font-size:0.8rem;" />
               <button class="btn btn-ghost btn-sm" id="sc-btn-copy-url">Copia</button>
             </div>
             
-            <div style="font-size:0.75rem;color:#93a1be;margin:10px 0 4px;">2. CHIAVE DI AUTORIZZAZIONE (TOKEN):</div>
+            <div style="font-size:0.75rem;color:#93a1be;margin:10px 0 4px;">CHIAVE DI ACCESSO (TOKEN):</div>
             <div style="display:flex;gap:8px;align-items:center;">
               <input class="input" readonly value="${escapeHtml(cfg.auth_token)}" id="sc-input-token" style="font-family:monospace;font-size:0.8rem;" />
               <button class="btn btn-ghost btn-sm" id="sc-btn-copy-token">Copia</button>
             </div>
+
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-primary btn-sm" id="sc-btn-test-ping">🧪 Verifica Connessione Server</button>
+              <span id="sc-ping-result" style="font-size:0.8rem;color:#93a1be;"></span>
+            </div>
           </div>
 
-          <h4 style="margin:16px 0 8px;color:#f8fafc;">Come creare il Comando Rapido su iPhone:</h4>
-          <ol style="color:#cbd5e1;padding-left:20px;margin:0 0 16px;">
-            <li>Apri l'app <strong>Comandi Rapidi</strong> su iPhone → tocca <strong>+</strong> in alto a destra.</li>
-            <li>Aggiungi le azioni:
-              <br/>• <em>"Trova campioni di salute"</em> per <strong>Variabilità FC</strong> (tipo SDNN)
-              <br/>• <em>"Trova campioni di salute"</em> per <strong>Frequenza cardiaca a riposo</strong>
-              <br/>• <em>"Trova campioni di salute"</em> per <strong>Sonno</strong>
-            </li>
-            <li>Aggiungi l'azione <strong>"Dizionario"</strong> con le chiavi <code>hrv_sdnn_ms</code>, <code>resting_hr</code>, <code>sleep_hours</code> e <code>auth_token</code>.</li>
-            <li>Aggiungi l'azione <strong>"Ottieni contenuti dall'URL"</strong>:
-              <br/>• Metodo: <strong>POST</strong>
-              <br/>• Corpo della richiesta: <strong>JSON</strong> (il dizionario appena creato)
-              <br/>• Intestazione facoltativa: <code>x-apple-health-token: ${escapeHtml(cfg.auth_token)}</code>
-            </li>
-            <li><em>(Consigliato)</em>: Vai nella tab <strong>Automazione</strong> di Comandi Rapidi → crea una nuova automazione <em>"Quando la sveglia viene interrotta"</em> → esegui subito questo comando rapido!</li>
-          </ol>
+          <!-- Metodo 1: Comando Rapido Semplificato -->
+          <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <strong style="color:#00b4d8;font-size:0.95rem;">Opzione A: Comando Rapido su iPhone (Consigliato)</strong>
+              <span style="font-size:0.75rem;background:rgba(0,180,216,0.15);color:#00b4d8;padding:2px 8px;border-radius:6px;font-weight:600;">SENZA DIZIONARIO</span>
+            </div>
+            <p style="color:#cbd5e1;margin:0 0 10px;font-size:0.82rem;">
+              Non serve più compilare dizionari o JSON complicati! Ora basta una singola azione URL con metodo GET:
+            </p>
+            <ol style="color:#cbd5e1;padding-left:18px;margin:0 0 10px;font-size:0.82rem;line-height:1.6;">
+              <li>Apri <strong>Comandi Rapidi</strong> su iPhone → tocca <strong>+</strong> in alto a destra.</li>
+              <li>Aggiungi le 3 azioni di lettura:
+                <br/>• <em>"Cerca campioni di salute"</em> → <strong>Frequenza cardiaca a riposo</strong> (1 campione, più recente)
+                <br/>• <em>"Cerca campioni di salute"</em> → <strong>Variabilità della frequenza cardiaca</strong> (1 campione, più recente)
+                <br/>• <em>"Cerca campioni di salute"</em> → <strong>Sonno</strong> (ultime 24 ore)
+              </li>
+              <li>Aggiungi l'azione <strong>"Ottieni contenuti dall'URL"</strong> con metodo <strong>GET</strong> e questo schema:</li>
+            </ol>
+            <div style="background:#090c14;border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;font-family:monospace;font-size:0.75rem;color:#10b981;word-break:break-all;margin-bottom:6px;">
+              ${escapeHtml(quickUrlExample)}
+            </div>
+            <button class="btn btn-ghost btn-sm" id="sc-btn-copy-template" style="font-size:0.75rem;">Copia schema URL</button>
+          </div>
 
-          <details style="background:#090c14;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px;">
-            <summary style="cursor:pointer;font-weight:600;color:#00b4d8;">Visualizza Payload JSON di Esempio</summary>
+          <!-- Metodo 2: App Health Auto Export -->
+          <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <strong style="color:#10b981;font-size:0.95rem;">Opzione B: App Gratuita "Health Auto Export"</strong>
+              <span style="font-size:0.75rem;background:rgba(16,185,129,0.15);color:#10b981;padding:2px 8px;border-radius:6px;font-weight:600;">100% AUTOMATICA</span>
+            </div>
+            <p style="color:#cbd5e1;margin:0 0 10px;font-size:0.82rem;">
+              Se non vuoi creare Comandi Rapidi, puoi scaricare l'app gratuita <strong>Health Auto Export</strong> dall'App Store:
+            </p>
+            <ol style="color:#cbd5e1;padding-left:18px;margin:0;font-size:0.82rem;line-height:1.6;">
+              <li>Installa <a href="https://apps.apple.com/app/health-auto-export-csv-gpx/id1115569107" target="_blank" style="color:#00b4d8;text-decoration:underline;">Health Auto Export</a> dall'App Store di iPhone.</li>
+              <li>Consenti l'accesso a Salute e vai in <strong>Automations</strong> → <strong>REST API</strong>.</li>
+              <li>Incolla il tuo <strong>Indirizzo Webhook</strong> e nell'Header aggiungi <code>x-apple-health-token: ${escapeHtml(cfg.auth_token)}</code>.</li>
+              <li>Fatto! L'app sincronizza da sola in background ogni giorno senza che tu debba fare nulla.</li>
+            </ol>
+          </div>
+
+          <details style="background:#090c14;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px;margin-bottom:14px;">
+            <summary style="cursor:pointer;font-weight:600;color:#93a1be;font-size:0.8rem;">Opzione C: Invio Avanzato JSON (Per sviluppatori o amanti di Shortcuts)</summary>
             <pre style="margin:10px 0 0;font-size:0.75rem;color:#cbd5e1;overflow-x:auto;">${escapeHtml(sampleJsonStr)}</pre>
           </details>
 
@@ -416,6 +444,27 @@ async function _openShortcutModal() {
   document.getElementById("sc-btn-copy-token")?.addEventListener("click", () => {
     navigator.clipboard.writeText(cfg.auth_token);
     showToast("Token copiato negli appunti!", "success");
+  });
+  document.getElementById("sc-btn-copy-template")?.addEventListener("click", () => {
+    navigator.clipboard.writeText(quickUrlExample);
+    showToast("Schema URL copiato negli appunti!", "success");
+  });
+  document.getElementById("sc-btn-test-ping")?.addEventListener("click", async () => {
+    const resEl = document.getElementById("sc-ping-result");
+    if (resEl) resEl.innerHTML = "<span style='color:#00b4d8;'>Verifica in corso...</span>";
+    try {
+      const resp = await fetch(cfg.webhook_url);
+      const data = await resp.json();
+      if (resp.ok && data.status === "ok") {
+        if (resEl) resEl.innerHTML = "<span style='color:#10b981;font-weight:600;'>✅ Server attivo e pronto!</span>";
+        showToast("Webhook raggiungibile e attivo!", "success");
+      } else {
+        if (resEl) resEl.innerHTML = "<span style='color:#ef4444;'>⚠️ Risposta anomala dal server</span>";
+      }
+    } catch (e) {
+      if (resEl) resEl.innerHTML = "<span style='color:#ef4444;'>❌ Server non raggiungibile</span>";
+      showToast("Impossibile contattare il server webhook.", "error");
+    }
   });
 }
 

@@ -10,6 +10,66 @@ from backend.models import AppleHealthManualEntry, AppleHealthSyncRequest
 logger = logging.getLogger("runpulse.apple_health")
 
 
+def parse_health_auto_export_payload(raw: Dict[str, Any], token: Optional[str] = None) -> AppleHealthSyncRequest:
+    """
+    Parses a payload from the 'Health Auto Export' iOS app (REST API / Webhook export).
+    Compatible with {"data": {"metrics": [...]}} or {"metrics": [...]}.
+    """
+    data = raw.get("data") if isinstance(raw.get("data"), dict) else raw
+    metrics = data.get("metrics") or []
+    extracted: Dict[str, Any] = {"raw_payload": raw, "auth_token": token}
+    target_date = None
+
+    for m in metrics:
+        name = (m.get("name") or "").lower()
+        samples = m.get("data") or []
+        if not samples:
+            continue
+        # Take the most recent sample
+        latest = samples[-1]
+        val = latest.get("qty") if "qty" in latest else (latest.get("value") if "value" in latest else latest.get("avg"))
+
+        sample_date_str = latest.get("date") or latest.get("startDate") or ""
+        if sample_date_str and not target_date and len(sample_date_str) >= 10:
+            target_date = sample_date_str[:10]
+
+        if name in ("heart_rate_variability_sdnn", "hrv", "variabilità della frequenza cardiaca", "variabilità fc"):
+            extracted["hrv_sdnn_ms"] = val
+        elif name in ("resting_heart_rate", "resting_hr", "frequenza cardiaca a riposo"):
+            extracted["resting_hr"] = val
+        elif name in ("sleep_analysis", "sleep", "sonno"):
+            extracted["sleep_hours"] = val
+            if "deep" in latest:
+                extracted["sleep_deep_hours"] = latest["deep"]
+            if "rem" in latest:
+                extracted["sleep_rem_hours"] = latest["rem"]
+            if "core" in latest or "light" in latest:
+                extracted["sleep_core_hours"] = latest.get("core") or latest.get("light")
+            if "awake" in latest:
+                extracted["sleep_awake_hours"] = latest["awake"]
+        elif name in ("vo2_max", "cardio_fitness", "cardio fitness"):
+            extracted["vo2_max"] = val
+        elif name in ("step_count", "steps", "passi"):
+            extracted["steps"] = val
+        elif name in ("active_energy", "active_calories", "energia attiva"):
+            extracted["active_calories"] = val
+        elif name in ("apple_exercise_time", "exercise_time", "tempo di esercizio"):
+            extracted["exercise_min"] = val
+        elif name in ("apple_stand_hour", "stand_hour", "ore in piedi"):
+            extracted["stand_hours"] = val
+        elif name in ("oxygen_saturation", "spo2", "saturazione ossigeno"):
+            extracted["spo2_pct"] = val * 100.0 if val and val <= 1.0 else val
+        elif name in ("respiratory_rate", "respiration_rate", "frequenza respiratoria"):
+            extracted["respiration_rate"] = val
+        elif name in ("wrist_temperature", "body_temperature", "temperatura al polso"):
+            extracted["wrist_temperature_c"] = val
+
+    if target_date:
+        extracted["date"] = target_date
+
+    return AppleHealthSyncRequest(**extracted)
+
+
 def calculate_sleep_score(
     total_sec: int,
     deep_sec: Optional[int] = None,

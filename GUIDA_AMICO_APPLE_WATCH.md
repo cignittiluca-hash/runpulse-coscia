@@ -34,15 +34,19 @@ Se vuoi usarla ovunque dal tuo iPhone anche quando il computer è spento:
 
 ## 🏃 2. Come sincronizzare le corse (Apple Watch → Strava)
 
+> 💡 **SERVE STRAVA PRIME O UN ABBONAMENTO A PAGAMENTO?**
+> **ASSOLUTAMENTE NO!** Non serve Strava Prime né alcun abbonamento a pagamento.
+> L'account **gratuito al 100%** di Strava è tutto ciò che serve. L'accesso alle API per sincronizzare le tue attività personali e il collegamento tra l'app Allenamento dell'Apple Watch e l'app Strava su iPhone sono completamente gratuiti per sempre (0€).
+
 1. Quando corri con l'**Apple Watch**, usa l'app che preferisci:
    - L'app nativa **Allenamento (Workout)** di Apple
    - L'app **Strava** su Apple Watch
    - **WorkOutDoors** o **Nike Run Club**
-2. Se usi l'app Allenamento nativa di Apple, attiva la sincronizzazione automatica verso Strava:
+2. Se usi l'app Allenamento nativa di Apple, attiva la sincronizzazione automatica verso Strava (gratuita):
    - Apri l'app **Strava** sull'iPhone → **Profilo** → **Impostazioni (⚙️)** → **Applicazioni, servizi e dispositivi** → **Salute** → attiva l'invio automatico a Strava.
 3. In **RunPulse**:
    - Vai nella scheda **Connessioni**.
-   - Segui i 3 passaggi per inserire Client ID e Client Secret di Strava (si creano in 1 minuto su `strava.com/settings/api`).
+   - Segui i passaggi per inserire Client ID e Client Secret di Strava (si creano gratis in 1 minuto su `strava.com/settings/api`).
    - Clicca **Salva e Connetti Strava**. Tutte le tue corse compariranno in RunPulse con i parziali al km, zone cardio, passo medio, TRIMP, cadenza ed efficienza.
 
 ---
@@ -56,19 +60,77 @@ Apple Watch raccoglie ogni notte e durante il giorno metriche fondamentali:
 - **Cardio Fitness** (stima del VO2 Max calcolata da Apple)
 - **Anelli Attività** (Calorie Movimento, Minuti Esercizio, Ore in Piedi, Passi)
 
-### Metodo 1: Comando Rapido su iPhone (Automatico al 100%)
-1. Nell'app RunPulse, vai su **Apple Watch** e clicca **📲 Sincronizza da iPhone**:
-   - Copia il tuo **Indirizzo Webhook** e il tuo **Token di sicurezza**.
-2. Sul tuo iPhone, apri l'app nativa **Comandi Rapidi (Shortcuts)**:
-   - Crea un nuovo comando rapido che legge da Apple Salute: *Variabilità FC*, *FC a riposo*, *Sonno*.
-   - Inserisci l'azione **Ottieni contenuti dall'URL** con metodo **POST**, inviando il JSON con il tuo token.
-3. **Automazione mattutina**:
-   - Nella scheda **Automazioni** di Comandi Rapidi, crea: *"Quando disattivo la sveglia al mattino"* → esegui il comando rapido.
-   - Ogni mattina i dati del tuo sonno e del recupero saranno già sincronizzati e Calippo saprà già se consigliarti di spingere o riposare!
+Hai **due metodi semplicissimi** a disposizione:
 
-### Metodo 2: Inserimento / Check-in Rapido Manuale
-Se non hai ancora creato il comando rapido o vuoi correggere al volo un dato:
-- Nella scheda **Apple Watch**, clicca su **✍️ Registra / Modifica Oggi**: puoi inserire in 5 secondi sonno, HRV e battito a riposo.
+---
+
+### METODO A: Comando Rapido su iPhone (Semplificato, 1 sola chiamata URL)
+*(Non serve più creare complicati dizionari JSON! Ora basta una semplice chiamata URL GET)*
+
+1. **Prendi i dati da RunPulse**:
+   - Vai nella scheda **Apple Watch** o **Connessioni** in RunPulse.
+   - Copia il tuo **Indirizzo Webhook** (es. `https://tuo-dominio.onrender.com/api/apple-health/sync` o `http://192.168.1.xxx:8000/api/apple-health/sync`) e il tuo **Token**.
+   - ⚠️ *IMPORTANTE*: Se usi RunPulse sul computer di casa, non usare mai `localhost` sull'iPhone (l'iPhone cercherebbe se stesso!). Usa l'indirizzo IP locale mostrato nel terminale (es. `192.168.1.xxx`) o il link HTTPS di Render.
+
+2. **Crea il comando rapido su iPhone**:
+   - Apri l'app nativa **Comandi Rapidi (Shortcuts)** → tocca il **+** in alto a destra.
+   - Assegna un nome, ad esempio: `Sincronizza RunPulse`.
+   - Aggiungi queste azioni in ordine:
+     1. **Cerca campioni di salute**:
+        - Tipo di campione: *Frequenza cardiaca a riposo*
+        - Ordina per: *Data di fine*
+        - Ordine: *Dal più recente al meno recente*
+        - Limite: *1 campione*
+     2. **Cerca campioni di salute**:
+        - Tipo di campione: *Variabilità della frequenza cardiaca*
+        - Ordina per: *Data di fine*
+        - Ordine: *Dal più recente al meno recente*
+        - Limite: *1 campione*
+     3. **Cerca campioni di salute**:
+        - Tipo di campione: *Sonno*
+        - Filtro: *Data di inizio nelle ultime 24 ore*
+        - Valore: *Nella fase sonno* (oppure Somma durata)
+     4. **Ottieni contenuti dall'URL**:
+        - Incolla l'URL includendo i parametri direttamente:
+          ```text
+          https://tuo-link/api/apple-health/sync?hrv=[Variabilità]&rhr=[Frequenza]&sleep=[Sonno]&token=TUO_TOKEN
+          ```
+        - Metodo: **GET** (o POST)
+   - Tocca **Esegui (▶️)** per provarlo: RunPulse gestisce automaticamente virgole, decimali italiani e unità di misura!
+
+3. **Automazione mattutina (100% automatica)**:
+   - Nell'app Comandi Rapidi, tocca la tab in basso **Automazione** → **Nuova automazione (+)**.
+   - Scegli **Quando la sveglia viene interrotta** (o a un orario fisso come le 08:00).
+   - Seleziona *Esegui immediatamente* (senza chiedere conferma).
+   - Imposta l'azione: *Esegui comando rapido* → seleziona `Sincronizza RunPulse`.
+   - Ogni mattina troverai il recupero pronto e Calippo saprà già consigliarti l'allenamento ideale!
+
+---
+
+### METODO B: App Gratuita "Health Auto Export" (Zero Comandi Rapidi, 100% Background)
+Se non vuoi usare l'app Comandi Rapidi, puoi usare l'app ufficiale consigliata su App Store:
+
+1. Scarica dall'App Store di iPhone l'app gratuita **[Health Auto Export](https://apps.apple.com/app/health-auto-export-csv-gpx/id1115569107)**.
+2. Apri l'app e consenti l'accesso ai dati di Apple Salute.
+3. Vai in **Automations** → **REST API / Webhook**:
+   - **URL**: il tuo indirizzo webhook (es. `https://tuo-dominio.onrender.com/api/apple-health/sync`).
+   - **Headers**: aggiungi `x-apple-health-token` con il tuo token.
+   - **Metrics**: seleziona *Heart Rate Variability (SDNN)*, *Resting Heart Rate*, *Sleep Analysis*, *Step Count*.
+   - **Export Frequency**: Background / Daily.
+4. Fatto! L'app invierà i dati da sola in background ogni giorno senza che tu debba aprire nulla.
+
+---
+
+### METODO C: Check-in Manuale Rapido
+Se vuoi registrare al volo sonno o battiti a mano:
+- Nella scheda **Apple Watch**, tocca **✍️ Registra / Modifica Oggi**: compila in 5 secondi ed è fatto.
+
+---
+
+### ⚠️ Risoluzione problemi (Se il collegamento non risponde)
+1. **Errore di connessione / Timeout**: Stai usando `localhost` dall'iPhone? Sostituiscilo con l'IP Wi-Fi del computer o con l'indirizzo Render online.
+2. **Permessi Apple Salute negati**: Su iPhone vai in **Impostazioni** → **Salute** → **Accesso dati e dispositivi** → apri **Comandi Rapidi** (o *Health Auto Export*) e assicurati che tutte le levette siano verdi.
+3. **Verifica rapida**: Apri Safari su iPhone e vai all'indirizzo `https://tuo-link/api/apple-health/sync`. Se vedi il messaggio `"Connessione Apple Health a RunPulse riuscita!"`, l'iPhone raggiunge correttamente il server!
 
 ---
 
