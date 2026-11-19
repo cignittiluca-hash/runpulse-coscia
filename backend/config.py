@@ -14,7 +14,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
 FRONTEND_DIR = BASE_DIR / "frontend"
 
-APP_PORT = int(os.getenv("RUNPULSE_PORT", "8000"))
+APP_PORT = int(os.getenv("PORT") or os.getenv("RUNPULSE_PORT", "8000"))
 BASE_URL = os.getenv("RUNPULSE_BASE_URL", f"http://localhost:{APP_PORT}").rstrip("/")
 
 APP_SECRET_SALT = os.getenv("RUNPULSE_SECRET_SALT", "runpulse-applewatch-secret-salt-default-2026")
