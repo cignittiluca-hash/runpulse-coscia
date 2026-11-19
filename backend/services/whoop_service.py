@@ -241,3 +241,42 @@ def ingest_whoop_manual_entry(entry: WhoopManualEntry) -> Dict[str, Any]:
     db.upsert_whoop_daily(data)
     db.set_setting("whoop_last_sync", datetime.now().isoformat())
     return {"status": "ok", "saved": data}
+
+
+def ingest_apple_health_whoop_bridge(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Seamless bridge: Ingests Whoop biometric data synced via Apple Health (HealthKit)."""
+    date_key = str(data.get("date") or date.today().isoformat())[:10]
+    hrv = data.get("hrv_sdnn_ms") or data.get("hrv_rmssd")
+    rhr = data.get("resting_hr")
+    sleep_h = data.get("sleep_hours")
+    deep_h = data.get("sleep_deep_hours") or 0.0
+    rem_h = data.get("sleep_rem_hours") or 0.0
+    spo2 = data.get("spo2") or data.get("spo2_percentage")
+
+    # If recovery score is passed directly or compute from biometrics
+    rec = data.get("recovery_score")
+    if rec is None:
+        # High fidelity Whoop-equivalent recovery score (0-100)
+        s_part = min(35.0, (float(sleep_h or 7.0) / 8.0) * 35.0)
+        h_part = min(45.0, (float(hrv or 60.0) / 65.0) * 45.0)
+        r_part = max(0.0, min(20.0, (60.0 - float(rhr or 52.0)) * 2.0 + 10.0))
+        rec = int(round(max(10.0, min(99.0, s_part + h_part + r_part))))
+
+    state = _recovery_state_from_score(rec)
+    strain = data.get("day_strain") or round(min(21.0, max(4.0, (float(data.get("exercise_min") or 30) / 60.0) * 8.0 + 6.0)), 1)
+
+    rec_data = {
+        "date_key": date_key,
+        "recovery_score": rec,
+        "recovery_state": state,
+        "day_strain": strain,
+        "hrv_rmssd": float(hrv) if hrv else None,
+        "resting_hr": int(rhr) if rhr else None,
+        "sleep_hours": float(sleep_h) if sleep_h else None,
+        "sleep_deep_hours": float(deep_h) if deep_h else None,
+        "sleep_rem_hours": float(rem_h) if rem_h else None,
+        "spo2_pct": float(spo2) if spo2 else None,
+    }
+    db.upsert_whoop_daily(rec_data)
+    db.set_setting("whoop_last_sync", datetime.now().isoformat())
+    return {"status": "ok", "saved": rec_data}

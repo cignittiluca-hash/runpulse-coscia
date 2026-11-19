@@ -40,6 +40,7 @@ from backend.services.whoop_service import (
     exchange_whoop_code_for_token,
     sync_whoop_api,
     ingest_whoop_manual_entry,
+    ingest_apple_health_whoop_bridge,
 )
 from backend.services.analytics import build_dashboard_summary, get_latest_valid_garmin
 from backend.services.coach_engine import (
@@ -247,7 +248,7 @@ def _detect_network_urls(port: int = APP_PORT) -> Dict[str, Any]:
 async def auth_and_cache_middleware(request: Request, call_next):
     path = request.url.path
     # Protect private API routes when a personal password/PIN is set
-    if path.startswith("/api/") and not path.startswith("/api/auth/") and path not in ("/api/health", "/api/strava/callback", "/api/whoop/callback", "/api/whoop/webhook"):
+    if path.startswith("/api/") and not path.startswith("/api/auth/") and path not in ("/api/health", "/api/strava/callback", "/api/whoop/callback", "/api/whoop/webhook", "/api/apple-health/sync"):
         if not _is_request_authorized(request):
             return JSONResponse({"detail": "Accesso protetto da password. Inserisci il PIN RunPulse."}, status_code=401)
 
@@ -498,8 +499,22 @@ async def whoop_webhook_endpoint(request: Request):
         expected = settings.get("whoop_api_key", "").strip()
         if expected and token != expected:
             raise HTTPException(status_code=401, detail="Token webhook Whoop non valido.")
+
+        if "hrv_sdnn_ms" in data or "sleep_deep_hours" in data:
+            return ingest_apple_health_whoop_bridge(data)
+
         entry = WhoopManualEntry(**data)
         return ingest_whoop_manual_entry(entry)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/apple-health/sync")
+async def apple_health_whoop_sync_endpoint(request: Request):
+    """Seamless bridge: Whoop data flowing via Apple Health / iOS Shortcuts."""
+    try:
+        data = await request.json()
+        return ingest_apple_health_whoop_bridge(data)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
